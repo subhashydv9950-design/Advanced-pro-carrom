@@ -1525,8 +1525,551 @@ if (localStorage.getItem("apc_sound_enabled") !== null) {
 
 console.log("PART 02-C loaded: menus and settings");
 </script>
+
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 03-A: BOARD INITIALIZATION
+========================================= */
+
+APC.board = {
+  canvas: document.getElementById("game-canvas"),
+  ctx: null,
+  width: 0,
+  height: 0,
+  coins: [],
+  striker: null,
+  running: false,
+  animation: 0
+};
+
+APC.board.ctx = APC.board.canvas.getContext("2d");
+
+APC_setupBoard = function() {
+  const b = APC.board;
+  if (!b.canvas || !b.ctx) return;
+
+  const rect = b.canvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  b.width = Math.max(300, rect.width);
+  b.height = Math.max(300, rect.height);
+
+  b.canvas.width = Math.round(b.width * dpr);
+  b.canvas.height = Math.round(b.height * dpr);
+
+  b.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const size = Math.min(b.width, b.height) * 0.82;
+  const left = (b.width - size) / 2;
+  const top = (b.height - size) / 2;
+
+  b.area = {
+    x: left,
+    y: top,
+    size: size,
+    centerX: left + size / 2,
+    centerY: top + size / 2
+  };
+
+  const a = b.area;
+  const r = size * 0.024;
+
+  b.coins = [];
+
+  /* Queen */
+  b.coins.push({
+    x: a.centerX, y: a.centerY,
+    vx: 0, vy: 0, r: r,
+    color: "#d62828", queen: true
+  });
+
+  /* Black and white coins */
+  for (let i = 0; i < 6; i++) {
+    const angle = i * Math.PI / 3;
+    const distance = r * 2.15;
+
+    b.coins.push({
+      x: a.centerX + Math.cos(angle) * distance,
+      y: a.centerY + Math.sin(angle) * distance,
+      vx: 0, vy: 0, r: r,
+      color: i % 2 ? "#f5ead1" : "#25232a",
+      queen: false
+    });
+  }
+
+  for (let i = 0; i < 6; i++) {
+    const angle = i * Math.PI / 3 + Math.PI / 6;
+    const distance = r * 4.15;
+
+    b.coins.push({
+      x: a.centerX + Math.cos(angle) * distance,
+      y: a.centerY + Math.sin(angle) * distance,
+      vx: 0, vy: 0, r: r,
+      color: i % 2 ? "#25232a" : "#f5ead1",
+      queen: false
+    });
+  }
+
+  b.striker = {
+    x: a.centerX,
+    y: a.y + a.size * 0.84,
+    r: r * 1.65,
+    color: "#e8bd65"
+  };
+
+  APC_drawBoard();
+};
+
+APC_drawBoard = function() {
+  const b = APC.board;
+  if (!b.ctx || !b.area) return;
+
+  const ctx = b.ctx;
+  const a = b.area;
+  const s = a.size;
+
+  ctx.clearRect(0, 0, b.width, b.height);
+
+  /* Outer board shadow */
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,.35)";
+  ctx.shadowBlur = 18;
+
+  ctx.fillStyle = "#56351f";
+  ctx.fillRect(a.x - 9, a.y - 9, s + 18, s + 18);
+
+  ctx.restore();
+
+  /* Wooden playing surface */
+  const wood = ctx.createLinearGradient(a.x, a.y, a.x + s, a.y + s);
+  wood.addColorStop(0, "#f4d8a0");
+  wood.addColorStop(0.5, "#e7bd7d");
+  wood.addColorStop(1, "#f5d9a2");
+
+  ctx.fillStyle = wood;
+  ctx.fillRect(a.x, a.y, s, s);
+
+  /* Inner boundary */
+  ctx.strokeStyle = "#7c4025";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(a.x + s * 0.075, a.y + s * 0.075,
+                 s * 0.85, s * 0.85);
+
+  /* Centre circles */
+  ctx.strokeStyle = "#b23b32";
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.arc(a.centerX, a.centerY, s * 0.12, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(a.centerX, a.centerY, s * 0.045, 0, Math.PI * 2);
+  ctx.stroke();
+
+  /* Corner pockets */
+  const pocketR = s * 0.055;
+  const inset = s * 0.045;
+
+  [
+    [a.x + inset, a.y + inset],
+    [a.x + s - inset, a.y + inset],
+    [a.x + inset, a.y + s - inset],
+    [a.x + s - inset, a.y + s - inset]
+  ].forEach(function(p) {
+    const g = ctx.createRadialGradient(
+      p[0], p[1], pocketR * 0.2,
+      p[0], p[1], pocketR
+    );
+
+    g.addColorStop(0, "#08090c");
+    g.addColorStop(1, "#342016");
+
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(p[0], p[1], pocketR, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  /* Coins */
+  b.coins.forEach(function(c) {
+    ctx.save();
+
+    ctx.shadowColor = "rgba(0,0,0,.3)";
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetY = 2;
+
+    ctx.fillStyle = c.color;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    ctx.strokeStyle = c.queen ? "#ff7777" : "#b18a50";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, c.r * 0.78, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  /* Striker */
+  if (b.striker) {
+    const st = b.striker;
+
+    ctx.fillStyle = st.color;
+    ctx.beginPath();
+    ctx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#8d5c24";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(st.x, st.y, st.r * 0.72, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+};
+
+APC_startMatch = function() {
+  APC.showPage("game-page");
+  APC.gameStarted = true;
+  APC.paused = false;
+
+  const loading = document.getElementById("game-loading");
+  if (loading) loading.style.display = "none";
+
+  requestAnimationFrame(function() {
+    APC_setupBoard();
+  });
+};
+
+window.addEventListener("resize", function() {
+  if (APC.currentPage === "game-page") {
+    APC_setupBoard();
+  }
+});
+
+console.log("PART 03-A loaded: carrom board initialized");
+</script>
+  
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 03-B: STRIKER AIM & POWER
+========================================= */
+
+APC.aim = {
+  dragging: false,
+  startX: 0,
+  startY: 0,
+  aimX: 0,
+  aimY: 0,
+  power: 0
+};
+
+APC_getPointer = function(event) {
+  const rect = APC.board.canvas.getBoundingClientRect();
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  };
+};
+
+APC_drawAim = function() {
+  const b = APC.board;
+  const ctx = b.ctx;
+  const a = APC.aim;
+  if (!ctx || !b.striker || !a.dragging) return;
+
+  const st = b.striker;
+  const dx = st.x - a.aimX;
+  const dy = st.y - a.aimY;
+  const distance = Math.hypot(dx, dy);
+  if (distance < 1) return;
+
+  const ux = dx / distance;
+  const uy = dy / distance;
+  const length = Math.min(distance * 2.2, a.areaSize || b.area.size * 0.7);
+
+  ctx.save();
+
+  /* Dotted aiming line */
+  ctx.setLineDash([5, 7]);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(st.x, st.y);
+  ctx.lineTo(st.x + ux * length, st.y + uy * length);
+  ctx.stroke();
+
+  /* Direction arrow */
+  ctx.setLineDash([]);
+  const ex = st.x + ux * length;
+  const ey = st.y + uy * length;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(ex, ey, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+
+  a.power = Math.min(100, Math.round(distance / (b.area.size * 0.35) * 100));
+
+  const fill = document.getElementById("power-fill");
+  if (fill) fill.style.width = a.power + "%";
+};
+
+APC.board.canvas.addEventListener("pointerdown", function(event) {
+  if (!APC.gameStarted || APC.paused) return;
+
+  const p = APC_getPointer(event);
+  const st = APC.board.striker;
+  if (!st) return;
+
+  if (Math.hypot(p.x - st.x, p.y - st.y) <= st.r * 2.5) {
+    APC.aim.dragging = true;
+    APC.aim.startX = p.x;
+    APC.aim.startY = p.y;
+    APC.aim.aimX = p.x;
+    APC.aim.aimY = p.y;
+
+    APC.board.canvas.setPointerCapture(event.pointerId);
+    APC_drawBoard();
+    APC_drawAim();
+  }
+});
+
+APC.board.canvas.addEventListener("pointermove", function(event) {
+  if (!APC.aim.dragging) return;
+
+  const p = APC_getPointer(event);
+  APC.aim.aimX = p.x;
+  APC.aim.aimY = p.y;
+
+  APC_drawBoard();
+  APC_drawAim();
+});
+
+APC.board.canvas.addEventListener("pointerup", function(event) {
+  if (!APC.aim.dragging) return;
+
+  const a = APC.aim;
+  const b = APC.board;
+  const st = b.striker;
+
+  a.dragging = false;
+
+  const dx = st.x - a.aimX;
+  const dy = st.y - a.aimY;
+  const distance = Math.hypot(dx, dy);
+
+  if (distance > 8) {
+    APC_shootStriker(dx / distance, dy / distance, a.power);
+  } else {
+    APC_drawBoard();
+  }
+
+  a.power = 0;
+  const fill = document.getElementById("power-fill");
+  if (fill) fill.style.width = "0%";
+});
+
+console.log("PART 03-B loaded: striker aiming controls");
+    </script>
+
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 03-C: PHYSICS & POCKETS
+========================================= */
+
+APC.physics = {
+  active: false,
+  friction: 0.988,
+  shots: 0
+};
+
+APC_shootStriker = function(dx, dy, power) {
+  const b = APC.board;
+  if (!b.striker || APC.physics.active) return;
+
+  const st = b.striker;
+  const strength = Math.max(0, Math.min(100, power));
+
+  if (strength < 3) {
+    APC_drawBoard();
+    return;
+  }
+
+  st.vx = dx * (3 + strength * 0.13);
+  st.vy = dy * (3 + strength * 0.13);
+
+  b.coins.forEach(function(c) {
+    c.vx = c.vx || 0;
+    c.vy = c.vy || 0;
+  });
+
+  APC.physics.active = true;
+  APC.physics.shots++;
+
+  APC_animatePhysics();
+};
+
+APC_animatePhysics = function() {
+  const b = APC.board;
+  const a = b.area;
+  if (!a || !b.striker) {
+    APC.physics.active = false;
+    return;
+  }
+
+  const st = b.striker;
+  const bodies = b.coins.concat(st);
+  const pocketR = a.size * 0.055;
+  const pocketInset = a.size * 0.045;
+  const pockets = [
+    [a.x + pocketInset, a.y + pocketInset],
+    [a.x + a.size - pocketInset, a.y + pocketInset],
+    [a.x + pocketInset, a.y + a.size - pocketInset],
+    [a.x + a.size - pocketInset, a.y + a.size - pocketInset]
+  ];
+
+  function updateBody(body) {
+    body.vx = (body.vx || 0) * APC.physics.friction;
+    body.vy = (body.vy || 0) * APC.physics.friction;
+
+    body.x += body.vx;
+    body.y += body.vy;
+
+    const minX = a.x + body.r;
+    const maxX = a.x + a.size - body.r;
+    const minY = a.y + body.r;
+    const maxY = a.y + a.size - body.r;
+
+    if (body.x < minX) {
+      body.x = minX;
+      body.vx = Math.abs(body.vx) * 0.75;
+    }
+    if (body.x > maxX) {
+      body.x = maxX;
+      body.vx = -Math.abs(body.vx) * 0.75;
+    }
+    if (body.y < minY) {
+      body.y = minY;
+      body.vy = Math.abs(body.vy) * 0.75;
+    }
+    if (body.y > maxY) {
+      body.y = maxY;
+      body.vy = -Math.abs(body.vy) * 0.75;
+    }
+  }
+
+  bodies.forEach(updateBody);
+
+  /* Coin-to-coin and striker-to-coin collisions */
+  for (let i = 0; i < bodies.length; i++) {
+    for (let j = i + 1; j < bodies.length; j++) {
+      const p = bodies[i];
+      const q = bodies[j];
+
+      const dx = q.x - p.x;
+      const dy = q.y - p.y;
+      const distance = Math.hypot(dx, dy);
+      const minDistance = p.r + q.r;
+
+      if (distance > 0 && distance < minDistance) {
+        const nx = dx / distance;
+        const ny = dy / distance;
+        const overlap = minDistance - distance;
+
+        p.x -= nx * overlap * 0.5;
+        p.y -= ny * overlap * 0.5;
+        q.x += nx * overlap * 0.5;
+        q.y += ny * overlap * 0.5;
+
+        const relativeVelocity =
+          (p.vx - q.vx) * nx + (p.vy - q.vy) * ny;
+
+        if (relativeVelocity > 0) {
+          const impulse = relativeVelocity * 0.88;
+          p.vx -= impulse * nx;
+          p.vy -= impulse * ny;
+          q.vx += impulse * nx;
+          q.vy += impulse * ny;
+        }
+      }
+    }
+  }
+
+  /* Pocket detection */
+  b.coins = b.coins.filter(function(coin) {
+    for (const pocket of pockets) {
+      if (Math.hypot(coin.x - pocket[0], coin.y - pocket[1]) < pocketR) {
+        APC.coinsPocketed = (APC.coinsPocketed || 0) + 1;
+        APC.score = (APC.score || 0) + (coin.queen ? 50 : 10);
+
+        const scoreEl = document.getElementById("current-score");
+        if (scoreEl) scoreEl.textContent = APC.score;
+
+        return false;
+      }
+    }
+    return true;
+  });
+
+  /* Check whether all pieces have stopped */
+  const moving = bodies.some(function(body) {
+    return Math.abs(body.vx || 0) > 0.12 ||
+           Math.abs(body.vy || 0) > 0.12;
+  });
+
+  APC_drawBoard();
+
+  if (moving) {
+    requestAnimationFrame(APC_animatePhysics);
+  } else {
+    bodies.forEach(function(body) {
+      body.vx = 0;
+      body.vy = 0;
+    });
+
+    /* Return striker to the shooting baseline */
+    st.x = a.centerX;
+    st.y = a.y + a.size * 0.84;
+
+    APC.physics.active = false;
+    APC_drawBoard();
+
+    const turnLabel = document.getElementById("turn-label");
+    if (turnLabel) turnLabel.textContent = "Next shot";
+  }
+};
+
+APC.score = APC.score || 0;
+APC.coinsPocketed = APC.coinsPocketed || 0;
+
+console.log("PART 03-C loaded: collision and pocket physics");
+</script>
+  
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
   
 </div>
+
 
 <!-- App JavaScript will be added in the following parts. -->
 </body>
