@@ -2053,6 +2053,166 @@ APC.coinsPocketed = APC.coinsPocketed || 0;
 console.log("PART 03-C loaded: collision and pocket physics");
 </script>
   
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 03-D: PAUSE & MATCH CONTROLS
+========================================= */
+
+APC_pauseMatch = function() {
+  APC.paused = true;
+  APC.openOverlay("pause-overlay");
+
+  const title = document.getElementById("pause-title");
+  const message = document.getElementById("pause-message");
+
+  if (title) title.textContent = "GAME PAUSED";
+  if (message) message.textContent = "Take a break. Your match is waiting.";
+};
+
+APC_resumeMatch = function() {
+  APC.paused = false;
+  APC.closeOverlay("pause-overlay");
+  APC.closeOverlay("menu-overlay");
+  APC_drawBoard();
+};
+
+APC_restartMatch = function() {
+  APC.closeOverlay("pause-overlay");
+  APC.closeOverlay("menu-overlay");
+
+  APC.score = 0;
+  APC.coinsPocketed = 0;
+  APC.physics.active = false;
+  APC.gameStarted = true;
+  APC.paused = false;
+
+  const scoreEl = document.getElementById("current-score");
+  if (scoreEl) scoreEl.textContent = "0";
+
+  APC_setupBoard();
+};
+
+APC_quitMatch = function() {
+  APC.paused = false;
+  APC.gameStarted = false;
+  APC.physics.active = false;
+
+  APC.closeOverlay("pause-overlay");
+  APC.closeOverlay("menu-overlay");
+  APC.showPage("home-page");
+};
+
+document.getElementById("game-pause").onclick =
+  APC_pauseMatch;
+
+document.getElementById("pause-resume").onclick =
+  APC_resumeMatch;
+
+document.getElementById("pause-restart").onclick =
+  APC_restartMatch;
+
+document.getElementById("pause-quit").onclick =
+  APC_quitMatch;
+
+console.log("PART 03-D loaded: pause and match controls");
+</script>
+  
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 03-E: PLAYER TURNS & SCORE
+========================================= */
+
+APC.turn = {
+  current: 0,
+  scores: [],
+  names: [],
+  shotCount: 0
+};
+
+APC_initializeTurns = function() {
+  const count = APC.selectedPlayers || 2;
+
+  APC.turn.current = 0;
+  APC.turn.shotCount = 0;
+  APC.turn.scores = Array(count).fill(0);
+
+  APC.turn.names = Array.from(
+    { length: count },
+    function(_, i) {
+      if (APC.mode === "ai") {
+        return i === 0 ? "You" : "AI Player " + i;
+      }
+      return "Player " + (i + 1);
+    }
+  );
+
+  APC.score = 0;
+  APC_updateTurnDisplay();
+};
+
+APC_updateTurnDisplay = function() {
+  const turn = APC.turn;
+  const name = turn.names[turn.current] || "Player 1";
+
+  const currentPlayer = document.getElementById("current-player");
+  const turnLabel = document.getElementById("turn-label");
+  const scoreEl = document.getElementById("current-score");
+
+  if (currentPlayer) currentPlayer.textContent = name;
+  if (turnLabel) {
+    turnLabel.textContent =
+      name + " · Turn " + (turn.current + 1);
+  }
+
+  if (scoreEl) {
+    scoreEl.textContent = turn.scores[turn.current] || 0;
+  }
+};
+
+APC_nextTurn = function() {
+  const turn = APC.turn;
+  if (!turn.names.length) APC_initializeTurns();
+
+  turn.shotCount++;
+  turn.current = (turn.current + 1) % turn.names.length;
+
+  APC_updateTurnDisplay();
+};
+
+/* Keep the existing physics and detect when a shot finishes */
+const APC_originalAnimatePhysics = APC_animatePhysics;
+
+APC_animatePhysics = function() {
+  const wasActive = APC.physics.active;
+
+  APC_originalAnimatePhysics();
+
+  if (wasActive && !APC.physics.active) {
+    APC_nextTurn();
+  }
+};
+
+/* Initialize turn data whenever a match starts */
+const APC_previousStartMatch = APC_startMatch;
+
+APC_startMatch = function() {
+  APC_previousStartMatch();
+  APC_initializeTurns();
+};
+
+/* Restart also resets turns */
+const APC_previousRestartMatch = APC_restartMatch;
+
+APC_restartMatch = function() {
+  APC_previousRestartMatch();
+  APC_initializeTurns();
+};
+
+console.log("PART 03-E loaded: turn system and scoreboard");
+</script>
+  
 
   
 
