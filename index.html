@@ -1281,6 +1281,251 @@ APC_setLanguage(APC.language);
 console.log("APC Part 02-A: Language system loaded.");
     </script>
   
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 02-B: NAVIGATION & PLAYER SELECTION
+========================================= */
+
+APC.showPage = function(id) {
+  document.querySelectorAll(".page").forEach(function(page) {
+    page.classList.remove("active");
+  });
+
+  const target = document.getElementById(id);
+
+  if (target) {
+    target.classList.add("active");
+    APC.currentPage = id;
+  }
+};
+
+document.getElementById("play-ai").onclick = function() {
+  APC.mode = "ai";
+  APC.selectedPlayers = 0;
+
+  document.getElementById("player-mode-label").textContent =
+    "PLAY VS AI";
+
+  document.getElementById("player-mode-info").textContent =
+    "Choose 2, 3 or 4 total players. You will play against AI opponents.";
+
+  APC.showPage("players-page");
+};
+
+document.getElementById("play-offline").onclick = function() {
+  APC.mode = "offline";
+  APC.selectedPlayers = 0;
+
+  document.getElementById("player-mode-label").textContent =
+    "OFFLINE PASS & PLAY";
+
+  document.getElementById("player-mode-info").textContent =
+    "Choose 2, 3 or 4 local players and take turns on the same device.";
+
+  APC.showPage("players-page");
+};
+
+document.getElementById("players-back").onclick = function() {
+  APC.showPage("home-page");
+};
+
+document.querySelectorAll("[data-player-count]").forEach(function(button) {
+  button.onclick = function() {
+    APC.playerCount = Number(button.dataset.playerCount);
+    APC.selectedPlayers = APC.playerCount;
+
+    document.querySelectorAll("[data-player-count]").forEach(function(item) {
+      item.classList.remove("selected");
+      item.setAttribute("aria-pressed", "false");
+    });
+
+    button.classList.add("selected");
+    button.setAttribute("aria-pressed", "true");
+
+    const startButton = document.getElementById("start-selected-game");
+    startButton.disabled = false;
+
+    startButton.textContent =
+      APC.mode === "ai"
+        ? "START GAME · " + APC.playerCount + " PLAYERS"
+        : "START GAME · " + APC.playerCount + " PLAYERS";
+  };
+});
+
+document.getElementById("start-selected-game").onclick = function() {
+  if (!APC.selectedPlayers) {
+    alert("Please select the number of players first.");
+    return;
+  }
+
+  if (typeof APC_startMatch === "function") {
+    APC_startMatch();
+  } else {
+    alert("Player selection is ready. The carrom game engine will be added in the next parts.");
+  }
+};
+
+/* Temporary online notice until multiplayer is connected */
+document.getElementById("play-online").onclick = function() {
+  alert(
+    "Online Friends requires a multiplayer server. " +
+    "The online system will be connected in a later part."
+  );
+};
+
+console.log("PART 02-B loaded: navigation and player selection");
+</script>
+  
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 02-C: MENU & OVERLAY CONTROLS
+========================================= */
+
+APC.openOverlay = function(id) {
+  const overlay = document.getElementById(id);
+  if (overlay) overlay.classList.add("active");
+};
+
+APC.closeOverlay = function(id) {
+  const overlay = document.getElementById(id);
+  if (overlay) overlay.classList.remove("active");
+};
+
+function APC_bindClick(id, callback) {
+  const element = document.getElementById(id);
+  if (element) element.onclick = callback;
+}
+
+/* Menu */
+APC_bindClick("menu-open", function() {
+  APC.openOverlay("menu-overlay");
+});
+
+APC_bindClick("game-menu-open", function() {
+  APC.openOverlay("menu-overlay");
+});
+
+APC_bindClick("menu-close", function() {
+  APC.closeOverlay("menu-overlay");
+});
+
+APC_bindClick("menu-resume", function() {
+  APC.closeOverlay("menu-overlay");
+});
+
+APC_bindClick("menu-settings", function() {
+  APC.closeOverlay("menu-overlay");
+  APC.openOverlay("settings-overlay");
+});
+
+APC_bindClick("menu-profile", function() {
+  APC.closeOverlay("menu-overlay");
+  APC.openOverlay("profile-overlay");
+});
+
+APC_bindClick("menu-about", function() {
+  APC.closeOverlay("menu-overlay");
+  APC.openOverlay("about-overlay");
+});
+
+APC_bindClick("menu-home", function() {
+  APC.closeOverlay("menu-overlay");
+  APC.closeOverlay("pause-overlay");
+  APC.showPage("home-page");
+});
+
+APC_bindClick("menu-quit", function() {
+  APC.closeOverlay("menu-overlay");
+  APC.closeOverlay("pause-overlay");
+  APC.showPage("home-page");
+});
+
+/* Close buttons */
+[
+  "settings-close",
+  "about-close",
+  "profile-close",
+  "leaderboard-close",
+  "rewards-close"
+].forEach(function(id) {
+  APC_bindClick(id, function() {
+    const map = {
+      "settings-close": "settings-overlay",
+      "about-close": "about-overlay",
+      "profile-close": "profile-overlay",
+      "leaderboard-close": "leaderboard-overlay",
+      "rewards-close": "rewards-overlay"
+    };
+
+    APC.closeOverlay(map[id]);
+  });
+});
+
+/* Home shortcuts */
+APC_bindClick("leaderboard-open", function() {
+  APC.openOverlay("leaderboard-overlay");
+});
+
+APC_bindClick("rewards-open", function() {
+  APC.openOverlay("rewards-overlay");
+});
+
+/* Settings sliders */
+const musicSlider = document.getElementById("music-volume");
+const sfxSlider = document.getElementById("sfx-volume");
+
+if (musicSlider) {
+  musicSlider.oninput = function() {
+    const label = document.getElementById("music-value");
+    if (label) label.textContent = this.value + "%";
+    localStorage.setItem("apc_music_volume", this.value);
+  };
+}
+
+if (sfxSlider) {
+  sfxSlider.oninput = function() {
+    const label = document.getElementById("sfx-value");
+    if (label) label.textContent = this.value + "%";
+    localStorage.setItem("apc_sfx_volume", this.value);
+  };
+}
+
+/* Restore saved settings */
+if (musicSlider && localStorage.getItem("apc_music_volume") !== null) {
+  musicSlider.value = localStorage.getItem("apc_music_volume");
+  document.getElementById("music-value").textContent =
+    musicSlider.value + "%";
+}
+
+if (sfxSlider && localStorage.getItem("apc_sfx_volume") !== null) {
+  sfxSlider.value = localStorage.getItem("apc_sfx_volume");
+  document.getElementById("sfx-value").textContent =
+    sfxSlider.value + "%";
+}
+
+/* Save settings */
+APC_bindClick("settings-save", function() {
+  APC.closeOverlay("settings-overlay");
+});
+
+/* Sound toggle */
+APC_bindClick("sound-toggle", function() {
+  APC.soundEnabled = !APC.soundEnabled;
+  this.textContent = APC.soundEnabled ? "🔊" : "🔇";
+  this.setAttribute("aria-pressed", String(APC.soundEnabled));
+  localStorage.setItem("apc_sound_enabled", String(APC.soundEnabled));
+});
+
+if (localStorage.getItem("apc_sound_enabled") !== null) {
+  APC.soundEnabled =
+    localStorage.getItem("apc_sound_enabled") === "true";
+}
+
+console.log("PART 02-C loaded: menus and settings");
+</script>
+  
 </div>
 
 <!-- App JavaScript will be added in the following parts. -->
