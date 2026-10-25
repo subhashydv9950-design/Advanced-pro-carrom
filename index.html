@@ -3708,9 +3708,2513 @@ APC.dailyRewards.render();
 console.log("PART 04-J loaded: daily rewards enabled.");
 </script>
   
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-K: PLAYER PROFILE + COINS DISPLAY
+===================================================== */
 
+APC.playerProfile = {
+  nameKey: "apc_player_name_v1",
 
+  getName: function() {
+    return localStorage.getItem(this.nameKey) || "Player";
+  },
 
+  setName: function(name) {
+    name = String(name || "").trim().slice(0, 24);
+
+    if (!name) {
+      alert("Please enter a valid player name.");
+      return;
+    }
+
+    localStorage.setItem(this.nameKey, name);
+    this.render();
+  },
+
+  getCoins: function() {
+    APC.progress = APC.progress || {};
+    return Math.max(0, Number(APC.progress.coins) || 0);
+  },
+
+  render: function() {
+    var name = this.getName();
+    var coins = this.getCoins();
+
+    var nameTargets = document.querySelectorAll(
+      "[data-apc-player-name]"
+    );
+
+    nameTargets.forEach(function(el) {
+      el.textContent = name;
+    });
+
+    var coinTargets = document.querySelectorAll(
+      "[data-apc-coins]"
+    );
+
+    coinTargets.forEach(function(el) {
+      el.textContent = "🪙 " + coins.toLocaleString();
+    });
+
+    var input = document.getElementById("profile-name");
+    if (input && document.activeElement !== input) {
+      input.value = name;
+    }
+
+    var profileId = document.getElementById("profile-id");
+    if (profileId && !profileId.textContent.trim()) {
+      profileId.textContent =
+        localStorage.getItem("apc_player_id") || "Local Player";
+    }
+  }
+};
+
+/* Update name from the existing profile input */
+var APC_profileNameInput = document.getElementById("profile-name");
+
+if (APC_profileNameInput) {
+  APC_profileNameInput.addEventListener("change", function() {
+    APC.playerProfile.setName(this.value);
+  });
+}
+
+/* Refresh displayed balance after progress changes */
+if (typeof APC_saveProgress === "function") {
+  var APC_profilePreviousSave = APC_saveProgress;
+
+  APC_saveProgress = function() {
+    APC_profilePreviousSave.apply(this, arguments);
+    APC.playerProfile.render();
+  };
+}
+
+/* Optional UI hooks for coin labels */
+document.querySelectorAll("[data-apc-coins]").forEach(function(el) {
+  el.setAttribute("aria-label", "Player coin balance");
+});
+
+APC.playerProfile.render();
+
+console.log("PART 04-K loaded: local profile and coin display enabled.");
+</script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-L: AVATAR + PROFILE CUSTOMIZATION
+===================================================== */
+
+APC.avatar = {
+  key: "apc_avatar_v1",
+
+  options: [
+    { icon: "🎯", name: "Sharpshooter" },
+    { icon: "👑", name: "Champion" },
+    { icon: "🔥", name: "Blazer" },
+    { icon: "⚡", name: "Lightning" },
+    { icon: "🐯", name: "Tiger" },
+    { icon: "💎", name: "Diamond" },
+    { icon: "🚀", name: "Rocket" },
+    { icon: "🦁", name: "Lion" }
+  ],
+
+  get: function() {
+    return localStorage.getItem(this.key) || "🎯";
+  },
+
+  select: function(icon) {
+    var exists = this.options.some(function(item) {
+      return item.icon === icon;
+    });
+
+    if (!exists) return;
+
+    localStorage.setItem(this.key, icon);
+    this.render();
+  },
+
+  render: function() {
+    var self = this;
+    var existing = document.getElementById("apc-avatar-panel");
+
+    if (existing) existing.remove();
+
+    var profile = document.getElementById("profile-overlay");
+    if (!profile) return;
+
+    var panel = document.createElement("section");
+    panel.id = "apc-avatar-panel";
+    panel.style.cssText =
+      "margin:14px 0;padding:14px;border-radius:16px;" +
+      "background:rgba(255,255,255,.06);color:white";
+
+    var title = document.createElement("h3");
+    title.textContent = "Choose Your Avatar";
+    title.style.cssText =
+      "font-size:16px;font-weight:800;margin-bottom:12px";
+
+    var current = document.createElement("div");
+    current.textContent = this.get();
+    current.style.cssText =
+      "font-size:42px;text-align:center;margin:8px 0 14px";
+
+    var grid = document.createElement("div");
+    grid.style.cssText =
+      "display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px";
+
+    this.options.forEach(function(item) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = item.icon;
+      button.title = item.name;
+      button.setAttribute("aria-label", item.name);
+      button.style.cssText =
+        "min-height:48px;border-radius:12px;font-size:25px;" +
+        "background:" +
+        (self.get() === item.icon
+          ? "rgba(124,58,237,.75)"
+          : "rgba(255,255,255,.08)") +
+        ";border:1px solid #ffffff25";
+
+      button.addEventListener("click", function() {
+        self.select(item.icon);
+      });
+
+      grid.appendChild(button);
+    });
+
+    panel.append(title, current, grid);
+
+    var profileName = document.getElementById("profile-name");
+
+    if (profileName && profileName.parentNode) {
+      profileName.parentNode.insertBefore(
+        panel,
+        profileName.nextSibling
+      );
+    } else {
+      profile.appendChild(panel);
+    }
+  }
+};
+
+/* Re-render avatar selector whenever profile is opened */
+var APC_avatarProfileButton =
+  document.getElementById("menu-profile");
+
+if (APC_avatarProfileButton) {
+  APC_avatarProfileButton.addEventListener("click", function() {
+    APC.avatar.render();
+  });
+}
+
+console.log("PART 04-L loaded: avatar customization enabled.");
+                                   </script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-M: BOARD THEMES + TABLE CUSTOMIZATION
+===================================================== */
+
+APC.boardThemes = {
+  storageKey: "apc_board_theme_v1",
+
+  themes: [
+    { id: "classic", name: "Classic Wood", color: "#c99560", cost: 0 },
+    { id: "royal", name: "Royal Gold", color: "#d4a72c", cost: 150 },
+    { id: "ocean", name: "Ocean Blue", color: "#2388b8", cost: 250 },
+    { id: "emerald", name: "Emerald", color: "#16856b", cost: 350 },
+    { id: "midnight", name: "Midnight", color: "#45445f", cost: 500 },
+    { id: "rose", name: "Rose Pink", color: "#d96b91", cost: 600 }
+  ],
+
+  getSelected: function() {
+    return localStorage.getItem(this.storageKey) || "classic";
+  },
+
+  getUnlocked: function() {
+    try {
+      return JSON.parse(
+        localStorage.getItem("apc_unlocked_themes_v1") ||
+        '["classic"]'
+      );
+    } catch (error) {
+      return ["classic"];
+    }
+  },
+
+  saveUnlocked: function(items) {
+    localStorage.setItem(
+      "apc_unlocked_themes_v1",
+      JSON.stringify(items)
+    );
+  },
+
+  select: function(id) {
+    var theme = this.themes.find(function(item) {
+      return item.id === id;
+    });
+
+    if (!theme) return;
+
+    var unlocked = this.getUnlocked();
+
+    if (!unlocked.includes(id)) {
+      var coins = Number(APC.progress && APC.progress.coins) || 0;
+
+      if (coins < theme.cost) {
+        alert("Not enough coins! You need " + theme.cost + " coins.");
+        return;
+      }
+
+      APC.progress.coins = coins - theme.cost;
+
+      if (typeof APC_saveProgress === "function") {
+        APC_saveProgress();
+      }
+
+      unlocked.push(id);
+      this.saveUnlocked(unlocked);
+    }
+
+    localStorage.setItem(this.storageKey, id);
+    this.apply();
+    this.render();
+  },
+
+  apply: function() {
+    var theme = this.themes.find(
+      item => item.id === this.getSelected()
+    );
+
+    if (!theme) return;
+
+    document.documentElement.style.setProperty(
+      "--apc-board-theme",
+      theme.color
+    );
+
+    if (APC.board && APC.board.canvas) {
+      APC.board.canvas.dataset.theme = theme.id;
+
+      if (typeof APC_drawBoard === "function") {
+        APC_drawBoard();
+      }
+    }
+  },
+
+  render: function() {
+    var existing = document.getElementById("apc-theme-panel");
+    if (existing) existing.remove();
+
+    var target = document.getElementById("settings-overlay");
+    if (!target) return;
+
+    var self = this;
+    var unlocked = this.getUnlocked();
+
+    var panel = document.createElement("section");
+    panel.id = "apc-theme-panel";
+    panel.style.cssText =
+      "margin:14px 0;padding:14px;border-radius:16px;" +
+      "background:rgba(255,255,255,.06);color:white";
+
+    var title = document.createElement("h3");
+    title.textContent = "🎨 Carrom Board Themes";
+    title.style.cssText =
+      "font-size:16px;font-weight:800;margin-bottom:12px";
+
+    var grid = document.createElement("div");
+    grid.style.cssText =
+      "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px";
+
+    this.themes.forEach(function(theme) {
+      var isUnlocked = unlocked.includes(theme.id);
+      var selected = self.getSelected() === theme.id;
+
+      var button = document.createElement("button");
+      button.type = "button";
+      button.style.cssText =
+        "padding:12px 8px;border-radius:12px;color:white;" +
+        "background:rgba(255,255,255,.06);" +
+        "border:2px solid " +
+        (selected ? "#a78bfa" : "#ffffff20");
+
+      var swatch = document.createElement("span");
+      swatch.style.cssText =
+        "display:block;width:34px;height:34px;border-radius:50%;" +
+        "background:" + theme.color +
+        ";margin:0 auto 8px;border:2px solid #ffffff70";
+
+      var label = document.createElement("span");
+      label.textContent = theme.name;
+      label.style.cssText = "display:block;font-weight:700;font-size:12px";
+
+      var cost = document.createElement("span");
+      cost.textContent = selected
+        ? "✓ Selected"
+        : isUnlocked
+          ? "Unlocked"
+          : "🪙 " + theme.cost;
+      cost.style.cssText =
+        "display:block;font-size:11px;margin-top:5px;opacity:.8";
+
+      button.append(swatch, label, cost);
+
+      button.addEventListener("click", function() {
+        self.select(theme.id);
+      });
+
+      grid.appendChild(button);
+    });
+
+    panel.append(title, grid);
+    target.appendChild(panel);
+  }
+};
+
+/* Add the theme panel to settings */
+var APC_themeSettingsButton =
+  document.getElementById("menu-settings");
+
+if (APC_themeSettingsButton) {
+  APC_themeSettingsButton.addEventListener("click", function() {
+    APC.boardThemes.render();
+  });
+}
+
+APC.boardThemes.apply();
+
+console.log("PART 04-M loaded: board theme selection enabled.");
+        </script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-N: REAL BOARD THEME COLORS
+===================================================== */
+
+APC.themeDrawing = {
+  colors: {
+    classic:  { board: "#c99560", line: "#6d3f24", center: "#e8c99e" },
+    royal:    { board: "#d4a72c", line: "#65420d", center: "#ffe9a3" },
+    ocean:    { board: "#2388b8", line: "#123d66", center: "#a8e4ff" },
+    emerald:  { board: "#16856b", line: "#064b3c", center: "#a8f0cf" },
+    midnight: { board: "#45445f", line: "#171728", center: "#bcbce7" },
+    rose:     { board: "#d96b91", line: "#762442", center: "#ffd0e1" }
+  },
+
+  get: function() {
+    var id = APC.boardThemes
+      ? APC.boardThemes.getSelected()
+      : "classic";
+
+    return this.colors[id] || this.colors.classic;
+  }
+};
+
+/* Redraw the actual game canvas with the selected board theme */
+if (typeof APC_drawBoard === "function") {
+  var APC_themeOriginalDraw = APC_drawBoard;
+
+  APC_drawBoard = function() {
+    var canvas = APC.board && APC.board.canvas;
+    var ctx = APC.board && APC.board.ctx;
+
+    if (!canvas || !ctx) {
+      return APC_themeOriginalDraw.apply(this, arguments);
+    }
+
+    var colors = APC.themeDrawing.get();
+
+    /* Preserve original drawing behavior, then tint the board */
+    APC_themeOriginalDraw.apply(this, arguments);
+
+    var width = canvas.width;
+    var height = canvas.height;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = colors.board;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  };
+}
+
+/* Reapply theme when a new board is created */
+if (typeof APC_setupBoard === "function") {
+  var APC_themeOriginalSetup = APC_setupBoard;
+
+  APC_setupBoard = function() {
+    APC_themeOriginalSetup.apply(this, arguments);
+
+    if (APC.boardThemes) {
+      APC.boardThemes.apply();
+    }
+  };
+}
+
+APC.boardThemes && APC.boardThemes.apply();
+
+console.log("PART 04-N loaded: board theme drawing updated.");
+</script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-O: STRIKER SKINS + CUSTOMIZATION SHOP
+===================================================== */
+
+APC.strikerShop = {
+  key: "apc_striker_skin_v1",
+
+  skins: [
+    { id: "classic", name: "Classic", color: "#f5f5f5", cost: 0 },
+    { id: "gold", name: "Royal Gold", color: "#fbbf24", cost: 150 },
+    { id: "ruby", name: "Ruby Red", color: "#ef4444", cost: 250 },
+    { id: "ocean", name: "Ocean Blue", color: "#38bdf8", cost: 350 },
+    { id: "neon", name: "Neon Green", color: "#4ade80", cost: 500 },
+    { id: "purple", name: "Royal Purple", color: "#c084fc", cost: 650 }
+  ],
+
+  getSelected: function() {
+    return localStorage.getItem(this.key) || "classic";
+  },
+
+  getUnlocked: function() {
+    try {
+      return JSON.parse(
+        localStorage.getItem("apc_unlocked_strikers_v1") ||
+        '["classic"]'
+      );
+    } catch (error) {
+      return ["classic"];
+    }
+  },
+
+  select: function(id) {
+    var skin = this.skins.find(function(item) {
+      return item.id === id;
+    });
+
+    if (!skin) return;
+
+    var unlocked = this.getUnlocked();
+
+    if (!unlocked.includes(id)) {
+      var coins = Number(APC.progress && APC.progress.coins) || 0;
+
+      if (coins < skin.cost) {
+        alert("Not enough coins! Required: " + skin.cost);
+        return;
+      }
+
+      APC.progress.coins = coins - skin.cost;
+
+      if (typeof APC_saveProgress === "function") {
+        APC_saveProgress();
+      }
+
+      unlocked.push(id);
+      localStorage.setItem(
+        "apc_unlocked_strikers_v1",
+        JSON.stringify(unlocked)
+      );
+    }
+
+    localStorage.setItem(this.key, id);
+    this.apply();
+    this.render();
+  },
+
+  apply: function() {
+    var skin = this.skins.find(
+      item => item.id === this.getSelected()
+    );
+
+    if (!skin || !APC.board || !APC.board.striker) return;
+
+    APC.board.striker.color = skin.color;
+
+    if (typeof APC_drawBoard === "function") {
+      APC_drawBoard();
+    }
+  },
+
+  render: function() {
+    var existing = document.getElementById("apc-striker-shop");
+    if (existing) existing.remove();
+
+    var settings = document.getElementById("settings-overlay");
+    if (!settings) return;
+
+    var self = this;
+    var unlocked = this.getUnlocked();
+
+    var panel = document.createElement("section");
+    panel.id = "apc-striker-shop";
+    panel.style.cssText =
+      "margin:14px 0;padding:14px;border-radius:16px;" +
+      "background:rgba(255,255,255,.06);color:white";
+
+    var title = document.createElement("h3");
+    title.textContent = "🎯 Striker Customization";
+    title.style.cssText =
+      "font-size:16px;font-weight:800;margin-bottom:12px";
+
+    var grid = document.createElement("div");
+    grid.style.cssText =
+      "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px";
+
+    this.skins.forEach(function(skin) {
+      var isUnlocked = unlocked.includes(skin.id);
+      var selected = self.getSelected() === skin.id;
+
+      var button = document.createElement("button");
+      button.type = "button";
+      button.style.cssText =
+        "padding:12px 8px;border-radius:12px;color:white;" +
+        "background:rgba(255,255,255,.05);border:2px solid " +
+        (selected ? "#a78bfa" : "#ffffff20");
+
+      var preview = document.createElement("span");
+      preview.style.cssText =
+        "display:block;width:38px;height:38px;border-radius:50%;" +
+        "margin:0 auto 8px;background:" + skin.color +
+        ";border:3px solid #ffffff80;box-shadow:0 0 12px " +
+        skin.color + "55";
+
+      var name = document.createElement("span");
+      name.textContent = skin.name;
+      name.style.cssText =
+        "display:block;font-size:12px;font-weight:700";
+
+      var price = document.createElement("span");
+      price.textContent = selected
+        ? "✓ Selected"
+        : isUnlocked
+          ? "Unlocked"
+          : "🪙 " + skin.cost;
+      price.style.cssText =
+        "display:block;font-size:11px;margin-top:5px;opacity:.8";
+
+      button.append(preview, name, price);
+      button.addEventListener("click", function() {
+        self.select(skin.id);
+      });
+
+      grid.appendChild(button);
+    });
+
+    panel.append(title, grid);
+    settings.appendChild(panel);
+  }
+};
+
+/* Show the striker shop when settings open */
+var APC_strikerShopButton =
+  document.getElementById("menu-settings");
+
+if (APC_strikerShopButton) {
+  APC_strikerShopButton.addEventListener("click", function() {
+    APC.strikerShop.render();
+  });
+}
+
+/* Reapply the selected striker skin after board setup */
+if (typeof APC_setupBoard === "function") {
+  var APC_strikerPreviousSetup = APC_setupBoard;
+
+  APC_setupBoard = function() {
+    APC_strikerPreviousSetup.apply(this, arguments);
+    APC.strikerShop.apply();
+  };
+}
+
+console.log("PART 04-O loaded: striker shop enabled.");
+        </script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-P: ACHIEVEMENTS + UNLOCKABLE REWARDS
+===================================================== */
+
+APC.achievements = {
+  key: "apc_achievements_v1",
+
+  list: [
+    { id: "first_match", title: "First Match", desc: "Complete your first match", icon: "🎮", goal: 1, reward: 50, stat: "matches" },
+    { id: "five_wins", title: "Rising Champion", desc: "Win 5 matches", icon: "🏆", goal: 5, reward: 150, stat: "wins" },
+    { id: "ten_matches", title: "Carrom Enthusiast", desc: "Complete 10 matches", icon: "🎯", goal: 10, reward: 200, stat: "matches" },
+    { id: "level_five", title: "Level Up", desc: "Reach level 5", icon: "⭐", goal: 5, reward: 250, stat: "level" },
+    { id: "coin_collector", title: "Coin Collector", desc: "Collect 1000 coins", icon: "🪙", goal: 1000, reward: 100, stat: "coins" }
+  ],
+
+  getClaimed: function() {
+    try {
+      return JSON.parse(localStorage.getItem(this.key) || "[]");
+    } catch (error) {
+      return [];
+    }
+  },
+
+  getValue: function(stat) {
+    APC.progress = APC.progress || {};
+
+    if (stat === "level") return Number(APC.progress.level) || 1;
+    if (stat === "coins") return Number(APC.progress.coins) || 0;
+    if (stat === "wins") return Number(APC.progress.wins) || 0;
+    if (stat === "matches") return Number(APC.progress.matches) || 0;
+
+    return 0;
+  },
+
+  claim: function(id) {
+    var achievement = this.list.find(function(item) {
+      return item.id === id;
+    });
+
+    if (!achievement) return;
+
+    var claimed = this.getClaimed();
+
+    if (claimed.includes(id)) {
+      alert("This achievement reward has already been claimed.");
+      return;
+    }
+
+    if (this.getValue(achievement.stat) < achievement.goal) {
+      alert("Achievement not completed yet!");
+      return;
+    }
+
+    claimed.push(id);
+
+    localStorage.setItem(this.key, JSON.stringify(claimed));
+
+    APC.progress = APC.progress || {};
+    APC.progress.coins =
+      (Number(APC.progress.coins) || 0) + achievement.reward;
+
+    if (typeof APC_saveProgress === "function") {
+      APC_saveProgress();
+    }
+
+    alert(
+      achievement.icon + " Achievement unlocked!\n+" +
+      achievement.reward + " coins"
+    );
+
+    this.render();
+  },
+
+  render: function() {
+    var old = document.getElementById("apc-achievements-panel");
+    if (old) old.remove();
+
+    var target = document.getElementById("rewards-overlay");
+    if (!target) return;
+
+    var self = this;
+    var claimed = this.getClaimed();
+
+    var panel = document.createElement("section");
+    panel.id = "apc-achievements-panel";
+    panel.style.cssText =
+      "margin:14px 0;padding:14px;border-radius:16px;" +
+      "background:rgba(255,255,255,.05);color:white";
+
+    var title = document.createElement("h3");
+    title.textContent = "🏅 Achievements";
+    title.style.cssText =
+      "font-size:17px;font-weight:800;margin-bottom:12px";
+
+    panel.appendChild(title);
+
+    this.list.forEach(function(item) {
+      var value = self.getValue(item.stat);
+      var done = value >= item.goal;
+      var wasClaimed = claimed.includes(item.id);
+
+      var card = document.createElement("div");
+      card.style.cssText =
+        "padding:12px;margin-bottom:10px;border-radius:12px;" +
+        "background:rgba(255,255,255,.05);border:1px solid #ffffff15";
+
+      var heading = document.createElement("strong");
+      heading.textContent = item.icon + " " + item.title;
+
+      var description = document.createElement("p");
+      description.textContent = item.desc;
+      description.style.cssText =
+        "font-size:12px;opacity:.75;margin:5px 0";
+
+      var progress = document.createElement("p");
+      progress.textContent =
+        Math.min(value, item.goal) + " / " + item.goal +
+        "  •  Reward: " + item.reward + " coins";
+      progress.style.cssText = "font-size:11px;margin-bottom:8px";
+
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = wasClaimed
+        ? "Claimed ✓"
+        : done
+          ? "Claim Reward"
+          : "In Progress";
+
+      button.disabled = !done || wasClaimed;
+      button.style.cssText =
+        "padding:8px 12px;border-radius:9px;" +
+        "background:" + (done && !wasClaimed ? "#a78bfa" : "#374151") +
+        ";color:white;font-size:12px;font-weight:700";
+
+      button.addEventListener("click", function() {
+        self.claim(item.id);
+      });
+
+      card.append(heading, description, progress, button);
+      panel.appendChild(card);
+    });
+
+    target.appendChild(panel);
+  }
+};
+
+/* Refresh achievements when rewards are opened */
+var APC_achievementOpenButton =
+  document.getElementById("rewards-open");
+
+if (APC_achievementOpenButton) {
+  APC_achievementOpenButton.addEventListener("click", function() {
+    APC.achievements.render();
+  });
+}
+
+console.log("PART 04-P loaded: achievement system enabled.");
+  </script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-Q: DAILY MISSIONS + PROGRESS TRACKER
+===================================================== */
+
+APC.dailyMissions = {
+  key: "apc_daily_missions_v1",
+
+  today: function() {
+    var d = new Date();
+    return d.getFullYear() + "-" +
+      String(d.getMonth() + 1).padStart(2, "0") + "-" +
+      String(d.getDate()).padStart(2, "0");
+  },
+
+  getState: function() {
+    try {
+      var state = JSON.parse(localStorage.getItem(this.key) || "{}");
+
+      if (state.date !== this.today()) {
+        state = {
+          date: this.today(),
+          completed: [],
+          claimed: []
+        };
+      }
+
+      state.completed = Array.isArray(state.completed)
+        ? state.completed : [];
+      state.claimed = Array.isArray(state.claimed)
+        ? state.claimed : [];
+
+      return state;
+    } catch (error) {
+      return {
+        date: this.today(),
+        completed: [],
+        claimed: []
+      };
+    }
+  },
+
+  missions: [
+    { id: "play_one", title: "Play a Match", description: "Complete one match", goal: 1, reward: 50 },
+    { id: "play_three", title: "Carrom Practice", description: "Complete three matches", goal: 3, reward: 100 },
+    { id: "pocket_five", title: "Pocket Master", description: "Pocket five coins", goal: 5, reward: 75 }
+  ],
+
+  getProgress: function(mission) {
+    var progress = APC.progress || {};
+
+    if (mission.id === "play_one" || mission.id === "play_three") {
+      return Number(progress.matches) || 0;
+    }
+
+    return Number(progress.coinsPocketedTotal) || 0;
+  },
+
+  claim: function(id) {
+    var state = this.getState();
+    var mission = this.missions.find(function(item) {
+      return item.id === id;
+    });
+
+    if (!mission || state.claimed.includes(id)) return;
+
+    if (this.getProgress(mission) < mission.goal) {
+      alert("Mission is not complete yet!");
+      return;
+    }
+
+    state.claimed.push(id);
+    localStorage.setItem(this.key, JSON.stringify(state));
+
+    APC.progress = APC.progress || {};
+    APC.progress.coins =
+      (Number(APC.progress.coins) || 0) + mission.reward;
+
+    if (typeof APC_saveProgress === "function") {
+      APC_saveProgress();
+    }
+
+    alert("Mission reward collected: +" + mission.reward + " coins!");
+    this.render();
+  },
+
+  render: function() {
+    var overlay = document.getElementById("rewards-overlay");
+    if (!overlay) return;
+
+    var old = document.getElementById("apc-daily-missions");
+    if (old) old.remove();
+
+    var self = this;
+    var state = this.getState();
+
+    var panel = document.createElement("section");
+    panel.id = "apc-daily-missions";
+    panel.style.cssText =
+      "margin:14px 0;padding:14px;border-radius:16px;" +
+      "background:rgba(255,255,255,.05);color:white";
+
+    var heading = document.createElement("h3");
+    heading.textContent = "📋 Daily Missions";
+    heading.style.cssText =
+      "font-size:17px;font-weight:800;margin-bottom:12px";
+
+    panel.appendChild(heading);
+
+    this.missions.forEach(function(mission) {
+      var value = self.getProgress(mission);
+      var completed = value >= mission.goal;
+      var claimed = state.claimed.includes(mission.id);
+
+      var card = document.createElement("div");
+      card.style.cssText =
+        "padding:12px;margin-bottom:10px;border-radius:12px;" +
+        "background:#ffffff08";
+
+      var name = document.createElement("strong");
+      name.textContent = mission.title;
+
+      var desc = document.createElement("p");
+      desc.textContent = mission.description;
+      desc.style.cssText = "font-size:12px;opacity:.75;margin:5px 0";
+
+      var bar = document.createElement("div");
+      bar.style.cssText =
+        "height:6px;background:#ffffff20;border-radius:9px;overflow:hidden";
+
+      var fill = document.createElement("div");
+      fill.style.cssText =
+        "height:100%;width:" +
+        Math.min(100, value / mission.goal * 100) +
+        "%;background:#a78bfa";
+
+      bar.appendChild(fill);
+
+      var status = document.createElement("p");
+      status.textContent =
+        Math.min(value, mission.goal) + "/" + mission.goal +
+        "  •  🪙 " + mission.reward;
+      status.style.cssText = "font-size:11px;margin:7px 0";
+
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = claimed
+        ? "Claimed ✓"
+        : completed
+          ? "Claim Reward"
+          : "In Progress";
+
+      button.disabled = !completed || claimed;
+      button.style.cssText =
+        "padding:8px 12px;border-radius:8px;" +
+        "background:" + (completed && !claimed ? "#7c3aed" : "#374151") +
+        ";color:white;font-weight:700;font-size:12px";
+
+      button.addEventListener("click", function() {
+        self.claim(mission.id);
+      });
+
+      card.append(name, desc, bar, status, button);
+      panel.appendChild(card);
+    });
+
+    overlay.appendChild(panel);
+  }
+};
+
+/* Add a lifetime coin-pocket counter */
+APC.progress = APC.progress || {};
+
+if (typeof APC_animatePhysics === "function") {
+  var APC_missionPreviousAnimation = APC_animatePhysics;
+
+  APC_animatePhysics = function() {
+    var before = APC.board && APC.board.coins
+      ? APC.board.coins.length : 0;
+
+    APC_missionPreviousAnimation.apply(this, arguments);
+
+    var after = APC.board && APC.board.coins
+      ? APC.board.coins.length : 0;
+
+    if (after < before) {
+      APC.progress.coinsPocketedTotal =
+        (Number(APC.progress.coinsPocketedTotal) || 0) +
+        (before - after);
+
+      localStorage.setItem(
+        "apc_progress_v1",
+        JSON.stringify(APC.progress)
+      );
+    }
+  };
+}
+
+var APC_missionsOpenButton = document.getElementById("rewards-open");
+
+if (APC_missionsOpenButton) {
+  APC_missionsOpenButton.addEventListener("click", function() {
+    APC.dailyMissions.render();
+  });
+}
+
+console.log("PART 04-Q loaded: daily mission tracker enabled.");
+                          </script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-R: PLAYER STATISTICS + WIN RATE
+===================================================== */
+
+APC.statistics = {
+  render: function() {
+    var profile = document.getElementById("profile-overlay");
+    if (!profile) return;
+
+    var old = document.getElementById("apc-statistics-panel");
+    if (old) old.remove();
+
+    var progress = APC.progress || {};
+    var matches = Number(progress.matches) || 0;
+    var wins = Number(progress.wins) || 0;
+    var losses = Math.max(0, matches - wins);
+    var winRate = matches
+      ? Math.round(wins / matches * 100)
+      : 0;
+
+    var panel = document.createElement("section");
+    panel.id = "apc-statistics-panel";
+    panel.style.cssText =
+      "margin:14px 0;padding:14px;border-radius:16px;" +
+      "background:rgba(255,255,255,.06);color:white";
+
+    var title = document.createElement("h3");
+    title.textContent = "📊 Career Statistics";
+    title.style.cssText =
+      "font-size:17px;font-weight:800;margin-bottom:12px";
+
+    var grid = document.createElement("div");
+    grid.style.cssText =
+      "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px";
+
+    var stats = [
+      { label: "Matches", value: matches, icon: "🎮" },
+      { label: "Wins", value: wins, icon: "🏆" },
+      { label: "Other Results", value: losses, icon: "🎯" },
+      { label: "Win Rate", value: winRate + "%", icon: "📈" },
+      { label: "Level", value: Number(progress.level) || 1, icon: "⭐" },
+      { label: "Coins", value: Number(progress.coins) || 0, icon: "🪙" }
+    ];
+
+    stats.forEach(function(stat) {
+      var card = document.createElement("div");
+      card.style.cssText =
+        "padding:12px;border-radius:12px;background:#ffffff08";
+
+      var label = document.createElement("div");
+      label.textContent = stat.icon + " " + stat.label;
+      label.style.cssText = "font-size:11px;opacity:.7";
+
+      var value = document.createElement("div");
+      value.textContent = String(stat.value);
+      value.style.cssText =
+        "font-size:22px;font-weight:800;margin-top:5px";
+
+      card.append(label, value);
+      grid.appendChild(card);
+    });
+
+    panel.append(title, grid);
+
+    var anchor = document.getElementById("profile-name");
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.appendChild(panel);
+    } else {
+      profile.appendChild(panel);
+    }
+  }
+};
+
+var APC_statsProfileButton = document.getElementById("menu-profile");
+
+if (APC_statsProfileButton) {
+  APC_statsProfileButton.addEventListener("click", function() {
+    APC.statistics.render();
+  });
+}
+
+/* Refresh statistics after progress changes */
+if (typeof APC_saveProgress === "function") {
+  var APC_statsPreviousSave = APC_saveProgress;
+
+  APC_saveProgress = function() {
+    APC_statsPreviousSave.apply(this, arguments);
+
+    if (
+      document.getElementById("profile-overlay") &&
+      document.getElementById("profile-overlay").classList.contains("active")
+    ) {
+      APC.statistics.render();
+    }
+  };
+}
+
+console.log("PART 04-R loaded: player statistics enabled.");
+                  </script>
+  
+
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-S: EXPANDED LANGUAGE SUPPORT
+===================================================== */
+
+APC_MORE_LANGUAGES = {
+  it: {
+    name: "Italiano",
+    home: "Home",
+    playAI: "Gioca contro IA",
+    offline: "Gioca offline",
+    online: "Amici online",
+    settings: "Impostazioni",
+    profile: "Profilo",
+    leaderboard: "Classifica",
+    rewards: "Ricompense",
+    back: "Indietro",
+    start: "Inizia partita",
+    resume: "Riprendi",
+    restart: "Ricomincia",
+    quit: "Esci",
+    about: "Informazioni",
+    language: "Lingua"
+  },
+  nl: {
+    name: "Nederlands",
+    home: "Startpagina",
+    playAI: "Tegen AI spelen",
+    offline: "Offline spelen",
+    online: "Online vrienden",
+    settings: "Instellingen",
+    profile: "Profiel",
+    leaderboard: "Ranglijst",
+    rewards: "Beloningen",
+    back: "Terug",
+    start: "Start spel",
+    resume: "Hervatten",
+    restart: "Opnieuw starten",
+    quit: "Stoppen",
+    about: "Over",
+    language: "Taal"
+  },
+  pt: {
+    name: "Português",
+    home: "Início",
+    playAI: "Jogar contra IA",
+    offline: "Jogar offline",
+    online: "Amigos online",
+    settings: "Configurações",
+    profile: "Perfil",
+    leaderboard: "Classificação",
+    rewards: "Recompensas",
+    back: "Voltar",
+    start: "Iniciar jogo",
+    resume: "Continuar",
+    restart: "Reiniciar",
+    quit: "Sair",
+    about: "Sobre",
+    language: "Idioma"
+  },
+  ru: {
+    name: "Русский",
+    home: "Главная",
+    playAI: "Играть против ИИ",
+    offline: "Офлайн-игра",
+    online: "Друзья онлайн",
+    settings: "Настройки",
+    profile: "Профиль",
+    leaderboard: "Таблица лидеров",
+    rewards: "Награды",
+    back: "Назад",
+    start: "Начать игру",
+    resume: "Продолжить",
+    restart: "Начать заново",
+    quit: "Выйти",
+    about: "О проекте",
+    language: "Язык"
+  },
+  id: {
+    name: "Bahasa Indonesia",
+    home: "Beranda",
+    playAI: "Lawan AI",
+    offline: "Main offline",
+    online: "Teman online",
+    settings: "Pengaturan",
+    profile: "Profil",
+    leaderboard: "Papan peringkat",
+    rewards: "Hadiah",
+    back: "Kembali",
+    start: "Mulai permainan",
+    resume: "Lanjutkan",
+    restart: "Mulai ulang",
+    quit: "Keluar",
+    about: "Tentang",
+    language: "Bahasa"
+  },
+  vi: {
+    name: "Tiếng Việt",
+    home: "Trang chủ",
+    playAI: "Đấu với AI",
+    offline: "Chơi ngoại tuyến",
+    online: "Bạn bè trực tuyến",
+    settings: "Cài đặt",
+    profile: "Hồ sơ",
+    leaderboard: "Bảng xếp hạng",
+    rewards: "Phần thưởng",
+    back: "Quay lại",
+    start: "Bắt đầu",
+    resume: "Tiếp tục",
+    restart: "Chơi lại",
+    quit: "Thoát",
+    about: "Giới thiệu",
+    language: "Ngôn ngữ"
+  },
+  fil: {
+    name: "Filipino",
+    home: "Home",
+    playAI: "Laban sa AI",
+    offline: "Offline na laro",
+    online: "Online na kaibigan",
+    settings: "Mga Setting",
+    profile: "Profile",
+    leaderboard: "Leaderboard",
+    rewards: "Mga Gantimpala",
+    back: "Bumalik",
+    start: "Simulan ang Laro",
+    resume: "Magpatuloy",
+    restart: "Ulitin",
+    quit: "Lumabas",
+    about: "Tungkol",
+    language: "Wika"
+  },
+  kk: {
+    name: "Қазақша",
+    home: "Басты бет",
+    playAI: "ЖИ-ге қарсы ойнау",
+    offline: "Офлайн ойнау",
+    online: "Онлайн достар",
+    settings: "Баптаулар",
+    profile: "Профиль",
+    leaderboard: "Үздіктер тізімі",
+    rewards: "Марапаттар",
+    back: "Артқа",
+    start: "Ойынды бастау",
+    resume: "Жалғастыру",
+    restart: "Қайта бастау",
+    quit: "Шығу",
+    about: "Жоба туралы",
+    language: "Тіл"
+  }
+};
+
+APC_translateSimple = function(code) {
+  var dictionary = APC_MORE_LANGUAGES[code];
+  if (!dictionary) return false;
+
+  var selectors = {
+    "play-ai": "playAI",
+    "play-offline": "offline",
+    "play-online": "online",
+    "menu-settings": "settings",
+    "menu-profile": "profile",
+    "leaderboard-open": "leaderboard",
+    "rewards-open": "rewards",
+    "players-back": "back",
+    "start-selected-game": "start",
+    "pause-resume": "resume",
+    "pause-restart": "restart",
+    "pause-quit": "quit",
+    "menu-about": "about"
+  };
+
+  Object.keys(selectors).forEach(function(id) {
+    var element = document.getElementById(id);
+    var key = selectors[id];
+
+    if (!element || !dictionary[key]) return;
+
+    if (!element.dataset.apcOriginalText) {
+      element.dataset.apcOriginalText = element.textContent;
+    }
+
+    element.textContent = dictionary[key];
+  });
+
+  document.documentElement.lang = code;
+  return true;
+};
+
+/* Keep the existing language engine and add extra dictionaries */
+var APC_previousSetLanguageS = APC_setLanguage;
+
+APC_setLanguage = function(code) {
+  if (APC_MORE_LANGUAGES[code]) {
+    APC.language = code;
+    localStorage.setItem("apc_language", code);
+
+    APC_translateSimple(code);
+
+    var options = document.getElementById("language-options");
+
+    if (options) {
+      options.querySelectorAll("[data-language-code]").forEach(function(item) {
+        item.classList.toggle(
+          "selected",
+          item.dataset.languageCode === code
+        );
+      });
+    }
+
+    APC_closeLanguageMenu();
+    return;
+  }
+
+  APC_previousSetLanguageS(code);
+};
+
+console.log("PART 04-S loaded: additional language dictionaries added.");
+    </script>
+  
+
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-T: GAMEPLAY PREFERENCES
+===================================================== */
+
+APC.preferences = {
+  key: "apc_game_preferences_v1",
+
+  defaults: {
+    aimGuide: true,
+    vibration: false,
+    leftHanded: false,
+    showScore: true,
+    reducedMotion: false
+  },
+
+  get: function() {
+    try {
+      return Object.assign(
+        {},
+        this.defaults,
+        JSON.parse(localStorage.getItem(this.key) || "{}")
+      );
+    } catch (error) {
+      return Object.assign({}, this.defaults);
+    }
+  },
+
+  save: function(name, value) {
+    var prefs = this.get();
+
+    if (!(name in this.defaults)) return;
+
+    prefs[name] = Boolean(value);
+    localStorage.setItem(this.key, JSON.stringify(prefs));
+
+    this.apply();
+  },
+
+  apply: function() {
+    var prefs = this.get();
+
+    document.documentElement.classList.toggle(
+      "apc-reduced-motion",
+      prefs.reducedMotion
+    );
+
+    document.documentElement.classList.toggle(
+      "apc-left-handed",
+      prefs.leftHanded
+    );
+
+    document.documentElement.dataset.showScore =
+      prefs.showScore ? "true" : "false";
+
+    if (APC.aim) {
+      APC.aim.enabled = prefs.aimGuide;
+    }
+  },
+
+  render: function() {
+    var overlay = document.getElementById("settings-overlay");
+    if (!overlay) return;
+
+    var old = document.getElementById("apc-preferences-panel");
+    if (old) old.remove();
+
+    var self = this;
+    var prefs = this.get();
+
+    var panel = document.createElement("section");
+    panel.id = "apc-preferences-panel";
+    panel.style.cssText =
+      "margin:14px 0;padding:14px;border-radius:16px;" +
+      "background:rgba(255,255,255,.05);color:white";
+
+    var heading = document.createElement("h3");
+    heading.textContent = "🎮 Gameplay Preferences";
+    heading.style.cssText =
+      "font-size:16px;font-weight:800;margin-bottom:12px";
+
+    panel.appendChild(heading);
+
+    var choices = [
+      ["aimGuide", "Show aiming guide"],
+      ["vibration", "Vibration preference"],
+      ["leftHanded", "Left-handed layout"],
+      ["showScore", "Show score"],
+      ["reducedMotion", "Reduce animations"]
+    ];
+
+    choices.forEach(function(choice) {
+      var row = document.createElement("label");
+      row.style.cssText =
+        "display:flex;align-items:center;justify-content:space-between;" +
+        "gap:12px;padding:10px 0;font-size:13px";
+
+      var text = document.createElement("span");
+      text.textContent = choice[1];
+
+      var input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = Boolean(prefs[choice[0]]);
+      input.style.cssText = "width:20px;height:20px;accent-color:#a78bfa";
+
+      input.addEventListener("change", function() {
+        self.save(choice[0], input.checked);
+      });
+
+      row.append(text, input);
+      panel.appendChild(row);
+    });
+
+    overlay.appendChild(panel);
+  }
+};
+
+/* Apply saved preferences on page load */
+APC.preferences.apply();
+
+/* Open the preferences panel from Settings */
+var APC_prefSettingsButton = document.getElementById("menu-settings");
+
+if (APC_prefSettingsButton) {
+  APC_prefSettingsButton.addEventListener("click", function() {
+    APC.preferences.render();
+  });
+}
+
+/* Respect reduced-motion preference */
+var APC_prefStyle = document.getElementById("apc-preference-style");
+
+if (!APC_prefStyle) {
+  APC_prefStyle = document.createElement("style");
+  APC_prefStyle.id = "apc-preference-style";
+  APC_prefStyle.textContent = `
+    .apc-reduced-motion *,
+    .apc-reduced-motion *::before,
+    .apc-reduced-motion *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    .apc-left-handed #power-fill {
+      direction: rtl;
+    }
+    [data-show-score="false"] #current-score {
+      visibility: hidden;
+    }
+  `;
+  document.head.appendChild(APC_prefStyle);
+}
+
+console.log("PART 04-T loaded: gameplay preferences saved.");
+       </script>
+  
+
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-U: INTERACTIVE TUTORIAL
+===================================================== */
+
+APC.tutorial = {
+  key: "apc_tutorial_completed_v1",
+  step: 0,
+
+  slides: [
+    {
+      icon: "🎯",
+      title: "Welcome to Advanced Pro Carrom",
+      text: "Aim carefully and pocket your coins to win the match."
+    },
+    {
+      icon: "👆",
+      title: "Aim Your Striker",
+      text: "Touch and drag the striker to set the direction of your shot."
+    },
+    {
+      icon: "⚡",
+      title: "Control Your Power",
+      text: "Drag farther to increase shot power. Release to shoot."
+    },
+    {
+      icon: "👑",
+      title: "Queen Strategy",
+      text: "Pocket the queen and cover it with a valid coin according to the game rules."
+    }
+  ],
+
+  open: function() {
+    this.step = 0;
+    this.render();
+  },
+
+  close: function() {
+    var overlay = document.getElementById("apc-tutorial-overlay");
+    if (overlay) overlay.remove();
+  },
+
+  render: function() {
+    var self = this;
+
+    var overlay = document.getElementById("apc-tutorial-overlay");
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement("div");
+    overlay.id = "apc-tutorial-overlay";
+    overlay.style.cssText =
+      "position:fixed;inset:0;z-index:10000;display:flex;" +
+      "align-items:center;justify-content:center;padding:20px;" +
+      "background:rgba(5,8,20,.88);backdrop-filter:blur(10px)";
+
+    var card = document.createElement("div");
+    card.style.cssText =
+      "width:min(100%,380px);padding:26px 20px;border-radius:24px;" +
+      "text-align:center;color:white;background:#15182b;" +
+      "border:1px solid #ffffff20;box-shadow:0 20px 70px #0008";
+
+    var slide = this.slides[this.step];
+
+    var icon = document.createElement("div");
+    icon.textContent = slide.icon;
+    icon.style.cssText = "font-size:56px;margin-bottom:16px";
+
+    var title = document.createElement("h2");
+    title.textContent = slide.title;
+    title.style.cssText =
+      "font-size:21px;font-weight:900;margin-bottom:12px";
+
+    var description = document.createElement("p");
+    description.textContent = slide.text;
+    description.style.cssText =
+      "font-size:14px;line-height:1.7;color:#cbd5e1;margin-bottom:22px";
+
+    var progress = document.createElement("p");
+    progress.textContent =
+      "Step " + (this.step + 1) + " of " + this.slides.length;
+    progress.style.cssText = "font-size:12px;color:#a78bfa;margin-bottom:18px";
+
+    var controls = document.createElement("div");
+    controls.style.cssText =
+      "display:flex;gap:10px;justify-content:center;flex-wrap:wrap";
+
+    var skip = document.createElement("button");
+    skip.textContent = "Skip";
+    skip.style.cssText =
+      "padding:11px 18px;border-radius:12px;background:#30344c;color:white";
+
+    skip.addEventListener("click", function() {
+      localStorage.setItem(self.key, "yes");
+      self.close();
+    });
+
+    var next = document.createElement("button");
+    next.textContent =
+      this.step === this.slides.length - 1 ? "Let's Play" : "Next →";
+    next.style.cssText =
+      "padding:11px 22px;border-radius:12px;background:#7c3aed;" +
+      "color:white;font-weight:800";
+
+    next.addEventListener("click", function() {
+      if (self.step < self.slides.length - 1) {
+        self.step++;
+        self.render();
+      } else {
+        localStorage.setItem(self.key, "yes");
+        self.close();
+      }
+    });
+
+    controls.append(skip, next);
+    card.append(icon, title, description, progress, controls);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  }
+};
+
+/* Add a Help button to the home screen */
+var APC_helpButton = document.createElement("button");
+APC_helpButton.type = "button";
+APC_helpButton.id = "apc-help-button";
+APC_helpButton.textContent = "❔ How to Play";
+APC_helpButton.style.cssText =
+  "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);" +
+  "z-index:20;padding:10px 16px;border-radius:14px;" +
+  "background:#ffffff12;color:white;border:1px solid #ffffff25;" +
+  "font-size:12px;font-weight:700";
+
+APC_helpButton.addEventListener("click", function() {
+  APC.tutorial.open();
+});
+
+document.getElementById("app").appendChild(APC_helpButton);
+
+/* Show the tutorial only on the first visit */
+if (!localStorage.getItem(APC.tutorial.key)) {
+  setTimeout(function() {
+    APC.tutorial.open();
+  }, 500);
+}
+
+console.log("PART 04-U loaded: interactive tutorial enabled.");
+</script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-V: MOBILE TOUCH CONTROLS
+===================================================== */
+
+(function () {
+  "use strict";
+
+  var APCMobile = {
+    pointer: null,
+    startX: 0,
+    startY: 0,
+    dragging: false,
+
+    init: function () {
+      var canvas = document.getElementById("game-canvas");
+      if (!canvas) return;
+
+      canvas.style.touchAction = "none";
+      canvas.style.userSelect = "none";
+      canvas.style.webkitUserSelect = "none";
+
+      canvas.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+      });
+
+      window.addEventListener("orientationchange", function () {
+        setTimeout(function () {
+          if (typeof APC_setupBoard === "function") {
+            APC_setupBoard();
+          }
+          if (typeof APC_drawBoard === "function") {
+            APC_drawBoard();
+          }
+        }, 250);
+      });
+
+      window.addEventListener("resize", function () {
+        if (document.getElementById("game-page")?.classList.contains("active")) {
+          if (typeof APC_setupBoard === "function") {
+            APC_setupBoard();
+          }
+          if (typeof APC_drawBoard === "function") {
+            APC_drawBoard();
+          }
+        }
+      });
+    }
+  };
+
+  /* Prevent accidental browser zoom while playing */
+  document.addEventListener("gesturestart", function (e) {
+    if (document.getElementById("game-page")?.classList.contains("active")) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  /* Keep game controls usable on small screens */
+  var mobileStyle = document.createElement("style");
+  mobileStyle.textContent = `
+    #game-canvas {
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #game-page {
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    #game-page button {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    @media (max-width: 600px) {
+      #game-page {
+        height: 100dvh;
+        min-height: 0;
+      }
+
+      #game-canvas {
+        max-width: 100%;
+        max-height: 100%;
+      }
+    }
+  `;
+  document.head.appendChild(mobileStyle);
+
+  APCMobile.init();
+
+  console.log("PART 04-V loaded: mobile touch improvements enabled.");
+})();
+</script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-W: LIVE MATCH HUD
+===================================================== */
+
+(function () {
+  "use strict";
+
+  var hudStyle = document.createElement("style");
+  hudStyle.textContent = `
+    #apc-live-hud {
+      position: fixed;
+      top: 66px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: max-content;
+      max-width: 94vw;
+      pointer-events: none;
+    }
+
+    .apc-hud-chip {
+      padding: 7px 11px;
+      border: 1px solid #ffffff22;
+      border-radius: 12px;
+      background: rgba(12, 16, 35, .88);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      box-shadow: 0 5px 20px #0003;
+      white-space: nowrap;
+    }
+
+    .apc-hud-chip span {
+      color: #c4b5fd;
+      margin-left: 4px;
+    }
+
+    #apc-shot-status {
+      position: fixed;
+      bottom: 75px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      padding: 9px 15px;
+      border-radius: 14px;
+      background: #11172ddd;
+      border: 1px solid #ffffff22;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 420px) {
+      #apc-live-hud { gap: 5px; top: 60px; }
+      .apc-hud-chip { padding: 6px 8px; font-size: 10px; }
+      #apc-shot-status { bottom: 62px; font-size: 11px; }
+    }
+  `;
+  document.head.appendChild(hudStyle);
+
+  var hud = document.createElement("div");
+  hud.id = "apc-live-hud";
+  hud.innerHTML = `
+    <div class="apc-hud-chip">🎮 MODE <span id="apc-hud-mode">AI</span></div>
+    <div class="apc-hud-chip">🎯 SHOTS <span id="apc-hud-shots">0</span></div>
+    <div class="apc-hud-chip">🪙 POCKETED <span id="apc-hud-pocketed">0</span></div>
+  `;
+  document.body.appendChild(hud);
+
+  var status = document.createElement("div");
+  status.id = "apc-shot-status";
+  status.textContent = "Drag the striker to aim";
+  document.body.appendChild(status);
+
+  function updateHUD() {
+    var page = document.getElementById("game-page");
+    var visible = !!(page && page.classList.contains("active"));
+
+    hud.style.display = visible ? "flex" : "none";
+    status.style.display = visible ? "block" : "none";
+
+    if (!visible || typeof APC === "undefined") return;
+
+    var mode = APC.mode === "ai" ? "AI MATCH" :
+      APC.mode === "offline" ? "LOCAL MATCH" : "MATCH";
+
+    document.getElementById("apc-hud-mode").textContent = mode;
+
+    document.getElementById("apc-hud-shots").textContent =
+      String(APC.turn && Number.isFinite(APC.turn.shotCount)
+        ? APC.turn.shotCount : 0);
+
+    document.getElementById("apc-hud-pocketed").textContent =
+      String(APC.coinsPocketed || 0);
+
+    if (APC.paused) {
+      status.textContent = "⏸ Match Paused";
+    } else if (APC.physics && APC.physics.active) {
+      status.textContent = "⚡ Coins in motion...";
+    } else {
+      status.textContent = "👆 Drag the striker to aim";
+    }
+  }
+
+  window.APC_updateLiveHUD = updateHUD;
+
+  /* Refresh the HUD while a match is open */
+  var lastHUDUpdate = 0;
+
+  function hudLoop(timestamp) {
+    if (timestamp - lastHUDUpdate > 250) {
+      updateHUD();
+      lastHUDUpdate = timestamp;
+    }
+    requestAnimationFrame(hudLoop);
+  }
+
+  requestAnimationFrame(hudLoop);
+
+  console.log("PART 04-W loaded: live match HUD enabled.");
+})();
+ </script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-X: MATCH TIMER + POWER INDICATOR
+===================================================== */
+
+(function () {
+  "use strict";
+
+  var style = document.createElement("style");
+  style.textContent = `
+    #apc-match-clock {
+      position: fixed;
+      top: 108px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 29;
+      padding: 6px 13px;
+      border-radius: 10px;
+      color: #fff;
+      background: #15182bee;
+      border: 1px solid #ffffff22;
+      font-size: 12px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+    }
+
+    #apc-power-panel {
+      position: fixed;
+      bottom: 42px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 28;
+      width: min(220px, 56vw);
+      padding: 9px 12px;
+      border-radius: 13px;
+      background: #11172de8;
+      border: 1px solid #ffffff22;
+      pointer-events: none;
+    }
+
+    #apc-power-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+      color: #e2e8f0;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    #apc-power-track {
+      height: 7px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #ffffff20;
+    }
+
+    #apc-power-value {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #38bdf8, #8b5cf6, #f59e0b);
+      transition: width .08s linear;
+    }
+
+    @media (max-width: 420px) {
+      #apc-match-clock { top: 100px; }
+      #apc-power-panel { bottom: 38px; }
+    }
+  `;
+  document.head.appendChild(style);
+
+  var clock = document.createElement("div");
+  clock.id = "apc-match-clock";
+  clock.textContent = "⏱ 00:00";
+  document.body.appendChild(clock);
+
+  var powerPanel = document.createElement("div");
+  powerPanel.id = "apc-power-panel";
+  powerPanel.innerHTML = `
+    <div id="apc-power-heading">
+      <span>SHOT POWER</span>
+      <span id="apc-power-percent">0%</span>
+    </div>
+    <div id="apc-power-track">
+      <div id="apc-power-value"></div>
+    </div>
+  `;
+  document.body.appendChild(powerPanel);
+
+  var startedAt = 0;
+  var accumulated = 0;
+  var wasActive = false;
+
+  function formatTime(seconds) {
+    var mins = Math.floor(seconds / 60);
+    var secs = seconds % 60;
+    return String(mins).padStart(2, "0") + ":" +
+      String(secs).padStart(2, "0");
+  }
+
+  function updateTimer() {
+    var page = document.getElementById("game-page");
+    var active = !!(
+      page &&
+      page.classList.contains("active") &&
+      typeof APC !== "undefined" &&
+      APC.gameStarted
+    );
+
+    if (active && !APC.paused) {
+      if (!wasActive) startedAt = Date.now();
+      var elapsed = accumulated + Math.floor((Date.now() - startedAt) / 1000);
+      clock.textContent = "⏱ " + formatTime(elapsed);
+      wasActive = true;
+    } else if (wasActive) {
+      if (typeof APC !== "undefined" && APC.paused) {
+        accumulated += Math.floor((Date.now() - startedAt) / 1000);
+      }
+      wasActive = false;
+    }
+
+    clock.style.display = active ? "block" : "none";
+    powerPanel.style.display = active ? "block" : "none";
+
+    if (active && APC.aim) {
+      var distance = Math.hypot(APC.aim.dx || 0, APC.aim.dy || 0);
+      var percent = Math.max(0, Math.min(100, Math.round(distance / 2)));
+
+      document.getElementById("apc-power-value").style.width =
+        percent + "%";
+      document.getElementById("apc-power-percent").textContent =
+        percent + "%";
+    }
+  }
+
+  /* Reset the timer when a new match begins */
+  if (typeof APC_startMatch === "function") {
+    var previousStartX = APC_startMatch;
+
+    APC_startMatch = function () {
+      accumulated = 0;
+      startedAt = Date.now();
+      wasActive = false;
+      return previousStartX.apply(this, arguments);
+    };
+  }
+
+  if (typeof APC_restartMatch === "function") {
+    var previousRestartX = APC_restartMatch;
+
+    APC_restartMatch = function () {
+      accumulated = 0;
+      startedAt = Date.now();
+      wasActive = false;
+      return previousRestartX.apply(this, arguments);
+    };
+  }
+
+  /* Update the power display from pointer movement */
+  document.addEventListener("pointermove", function () {
+    if (typeof APC !== "undefined" && APC.aim) {
+      updateTimer();
+    }
+  }, { passive: true });
+
+  setInterval(updateTimer, 250);
+
+  console.log("PART 04-X loaded: timer and power display enabled.");
+})();
+      </script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-Y: STRIKER POSITION + AIM GUIDE
+===================================================== */
+
+(function () {
+  "use strict";
+
+  var style = document.createElement("style");
+  style.textContent = `
+    #apc-striker-controls {
+      position: fixed;
+      bottom: 108px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 35;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border: 1px solid #ffffff22;
+      border-radius: 15px;
+      background: #10162be8;
+    }
+
+    #apc-striker-controls button {
+      width: 42px;
+      height: 38px;
+      border-radius: 10px;
+      color: white;
+      background: #ffffff12;
+      border: 1px solid #ffffff20;
+      font-size: 18px;
+      font-weight: 900;
+      touch-action: manipulation;
+    }
+
+    #apc-striker-controls button:active {
+      background: #7c3aed;
+    }
+
+    #apc-striker-label {
+      min-width: 78px;
+      text-align: center;
+      color: #ddd6fe;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    @media (max-width: 420px) {
+      #apc-striker-controls { bottom: 100px; }
+      #apc-striker-controls button { width: 38px; height: 35px; }
+    }
+  `;
+  document.head.appendChild(style);
+
+  var panel = document.createElement("div");
+  panel.id = "apc-striker-controls";
+  panel.innerHTML = `
+    <button type="button" id="apc-striker-left" aria-label="Move striker left">◀</button>
+    <div id="apc-striker-label">STRIKER<br>POSITION</div>
+    <button type="button" id="apc-striker-right" aria-label="Move striker right">▶</button>
+  `;
+  document.body.appendChild(panel);
+
+  function moveStriker(direction) {
+    if (
+      typeof APC === "undefined" ||
+      !APC.board ||
+      !APC.board.striker ||
+      (APC.physics && APC.physics.active) ||
+      APC.paused
+    ) return;
+
+    var board = APC.board;
+    var striker = board.striker;
+
+    if (!Number.isFinite(board.width) || !Number.isFinite(board.height)) return;
+
+    var margin = Math.max(18, board.width * 0.09);
+    var step = Math.max(5, board.width * 0.025);
+
+    var left = margin;
+    var right = board.width - margin;
+
+    striker.x = Math.max(left, Math.min(right, striker.x + direction * step));
+
+    if (typeof APC_drawBoard === "function") {
+      APC_drawBoard();
+    }
+  }
+
+  document.getElementById("apc-striker-left").addEventListener("click", function () {
+    moveStriker(-1);
+  });
+
+  document.getElementById("apc-striker-right").addEventListener("click", function () {
+    moveStriker(1);
+  });
+
+  function updateVisibility() {
+    var page = document.getElementById("game-page");
+    var visible = !!(page && page.classList.contains("active"));
+    panel.style.display = visible ? "flex" : "none";
+  }
+
+  setInterval(updateVisibility, 300);
+  updateVisibility();
+
+  console.log("PART 04-Y loaded: striker position controls enabled.");
+})();
+</script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-Z: CONTROL PREFERENCES
+===================================================== */
+
+(function () {
+  "use strict";
+
+  var key = "apc_control_preferences_v1";
+
+  var prefs = {
+    aimSensitivity: 1,
+    showAimGuide: true,
+    confirmShot: false,
+    leftHanded: false
+  };
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(key) || "{}");
+    Object.assign(prefs, saved);
+  } catch (e) {}
+
+  function save() {
+    try {
+      localStorage.setItem(key, JSON.stringify(prefs));
+    } catch (e) {}
+  }
+
+  var style = document.createElement("style");
+  style.textContent = `
+    #apc-control-preferences {
+      margin: 16px 0;
+      padding: 16px;
+      border-radius: 16px;
+      background: #ffffff08;
+      border: 1px solid #ffffff18;
+      color: white;
+    }
+
+    #apc-control-preferences h3 {
+      margin: 0 0 14px;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .apc-pref-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 13px 0;
+      font-size: 12px;
+    }
+
+    .apc-pref-row input[type="range"] {
+      width: 110px;
+      accent-color: #8b5cf6;
+    }
+
+    .apc-pref-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #8b5cf6;
+    }
+
+    #apc-sensitivity-value {
+      min-width: 34px;
+      text-align: right;
+      color: #c4b5fd;
+    }
+  `;
+  document.head.appendChild(style);
+
+  function addPreferences() {
+    var settings = document.getElementById("settings-overlay");
+    if (!settings || document.getElementById("apc-control-preferences")) return;
+
+    var panel = document.createElement("section");
+    panel.id = "apc-control-preferences";
+
+    panel.innerHTML = `
+      <h3>🎮 Control Preferences</h3>
+
+      <label class="apc-pref-row">
+        <span>Aim sensitivity</span>
+        <input id="apc-aim-sensitivity" type="range"
+          min="0.5" max="2" step="0.1" value="${prefs.aimSensitivity}">
+        <span id="apc-sensitivity-value">${Number(prefs.aimSensitivity).toFixed(1)}×</span>
+      </label>
+
+      <label class="apc-pref-row">
+        <span>Show aiming guide</span>
+        <input id="apc-show-aim-guide" type="checkbox"
+          ${prefs.showAimGuide ? "checked" : ""}>
+      </label>
+
+      <label class="apc-pref-row">
+        <span>Left-handed controls</span>
+        <input id="apc-left-handed-pref" type="checkbox"
+          ${prefs.leftHanded ? "checked" : ""}>
+      </label>
+    `;
+
+    var content = settings.querySelector(
+      ".modal-content, .overlay-content, .settings-content"
+    ) || settings;
+
+    content.appendChild(panel);
+
+    panel.querySelector("#apc-aim-sensitivity").addEventListener("input", function () {
+      prefs.aimSensitivity = Number(this.value);
+      panel.querySelector("#apc-sensitivity-value").textContent =
+        prefs.aimSensitivity.toFixed(1) + "×";
+      save();
+    });
+
+    panel.querySelector("#apc-show-aim-guide").addEventListener("change", function () {
+      prefs.showAimGuide = this.checked;
+      if (typeof APC !== "undefined" && APC.aim) {
+        APC.aim.enabled = prefs.showAimGuide;
+      }
+      save();
+    });
+
+    panel.querySelector("#apc-left-handed-pref").addEventListener("change", function () {
+      prefs.leftHanded = this.checked;
+      document.body.classList.toggle("apc-left-handed", prefs.leftHanded);
+      save();
+    });
+  }
+
+  if (typeof APC !== "undefined") {
+    APC.controlPreferences = prefs;
+  }
+
+  document.getElementById("menu-settings")?.addEventListener(
+    "click", addPreferences
+  );
+
+  document.getElementById("settings-open")?.addEventListener(
+    "click", addPreferences
+  );
+
+  document.getElementById("settings-close")?.addEventListener(
+    "click", function () {
+      save();
+    }
+  );
+
+  document.body.classList.toggle("apc-left-handed", prefs.leftHanded);
+
+  if (typeof APC !== "undefined" && APC.aim) {
+    APC.aim.enabled = prefs.showAimGuide;
+  }
+
+  console.log("PART 04-Z loaded: control preferences available.");
+})();
+</script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 05-A: PHYSICS IMPROVEMENTS
+===================================================== */
+
+(function () {
+  "use strict";
+
+  APC.advancedPhysics = {
+    restitution: 0.88,
+    friction: 0.986,
+    minSpeed: 0.045,
+    collisionSoundCooldown: 0
+  };
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  /*
+   * This improves the existing Matter.js setup only when
+   * its engine and bodies are actually available.
+   */
+  APC.configureMatterPhysics = function (engine, bodies) {
+    if (!window.Matter || !engine || !Array.isArray(bodies)) {
+      return false;
+    }
+
+    var Matter = window.Matter;
+
+    Matter.Engine.update(engine, 1000 / 60);
+
+    bodies.forEach(function (body) {
+      if (!body || body.isStatic) return;
+
+      Matter.Body.set(body, {
+        restitution: APC.advancedPhysics.restitution,
+        friction: 0.04,
+        frictionStatic: 0.08,
+        frictionAir: 0.012
+      });
+    });
+
+    return true;
+  };
+
+  /*
+   * Safe circle collision response helper for a future
+   * physics integration. It does not replace the current
+   * board's existing collision loop.
+   */
+  APC.resolveCircleCollision = function (a, b) {
+    if (!a || !b) return false;
+
+    var dx = b.x - a.x;
+    var dy = b.y - a.y;
+    var distance = Math.hypot(dx, dy);
+
+    var radiusA = Number(a.radius) || Number(a.r) || 0;
+    var radiusB = Number(b.radius) || Number(b.r) || 0;
+    var minDistance = radiusA + radiusB;
+
+    if (!distance || !minDistance || distance >= minDistance) {
+      return false;
+    }
+
+    var nx = dx / distance;
+    var ny = dy / distance;
+    var overlap = minDistance - distance;
+
+    var massA = Number(a.mass) || 1;
+    var massB = Number(b.mass) || 1;
+    var totalMass = massA + massB;
+
+    a.x -= nx * overlap * (massB / totalMass);
+    a.y -= ny * overlap * (massB / totalMass);
+    b.x += nx * overlap * (massA / totalMass);
+    b.y += ny * overlap * (massA / totalMass);
+
+    var avx = Number(a.vx) || 0;
+    var avy = Number(a.vy) || 0;
+    var bvx = Number(b.vx) || 0;
+    var bvy = Number(b.vy) || 0;
+
+    var relative = (bvx - avx) * nx + (bvy - avy) * ny;
+
+    if (relative < 0) {
+      var impulse = -(1 + APC.advancedPhysics.restitution) *
+        relative / (1 / massA + 1 / massB);
+
+      a.vx = avx - impulse * nx / massA;
+      a.vy = avy - impulse * ny / massA;
+      b.vx = bvx + impulse * nx / massB;
+      b.vy = bvy + impulse * ny / massB;
+    }
+
+    return true;
+  };
+
+  console.log(
+    "PART 05-A loaded: collision helpers ready; existing physics unchanged."
+  );
+})();
+</script>
+
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 05-B: SHOT POWER CONTROL
+===================================================== */
+
+(function () {
+  "use strict";
+
+  APC.shotControl = {
+    minPower: 2,
+    maxPower: 14,
+    sensitivity: 1,
+    charging: false,
+    startX: 0,
+    startY: 0,
+    currentPower: 0
+  };
+
+  APC.calculateShotPower = function (distance) {
+    var sensitivity = 1;
+
+    if (APC.controlPreferences) {
+      sensitivity = Number(
+        APC.controlPreferences.aimSensitivity
+      ) || 1;
+    }
+
+    var power = distance * 0.075 * sensitivity;
+
+    return Math.max(
+      APC.shotControl.minPower,
+      Math.min(APC.shotControl.maxPower, power)
+    );
+  };
+
+  APC.updateShotPowerUI = function (distance) {
+    var power = APC.calculateShotPower(distance);
+    var percent = Math.round(
+      power / APC.shotControl.maxPower * 100
+    );
+
+    APC.shotControl.currentPower = power;
+
+    var fill = document.getElementById("apc-power-value");
+    var label = document.getElementById("apc-power-percent");
+
+    if (fill) fill.style.width = percent + "%";
+    if (label) label.textContent = percent + "%";
+
+    return power;
+  };
+
+  /*
+   * Apply the sensitivity preference to the existing
+   * aim distance without replacing the current physics.
+   */
+  if (typeof APC_shootStriker === "function") {
+    var previousShootPowerB = APC_shootStriker;
+
+    APC_shootStriker = function (dx, dy, power) {
+      var sensitivity = 1;
+
+      if (APC.controlPreferences) {
+        sensitivity = Number(
+          APC.controlPreferences.aimSensitivity
+        ) || 1;
+      }
+
+      var adjustedPower = Math.max(
+        APC.shotControl.minPower,
+        Math.min(
+          APC.shotControl.maxPower,
+          (Number(power) || 0) * sensitivity
+        )
+      );
+
+      return previousShootPowerB.call(
+        this,
+        dx,
+        dy,
+        adjustedPower
+      );
+    };
+  }
+
+  console.log("PART 05-B loaded: shot power controls connected.");
+})();
+</script>
+  
+
+  
 
 
 
