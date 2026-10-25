@@ -2213,9 +2213,1501 @@ APC_restartMatch = function() {
 console.log("PART 03-E loaded: turn system and scoreboard");
 </script>
   
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 03-F: AUDIO ENGINE
+========================================= */
 
+APC.audio = {
+  context: null,
+  master: null,
+  musicGain: null,
+  sfxGain: null,
+  musicEnabled: true,
+  ready: false
+};
+
+APC_initAudio = function() {
+  if (APC.audio.ready) {
+    if (APC.audio.context.state === "suspended") {
+      APC.audio.context.resume();
+    }
+    return;
+  }
+
+  const AudioContextClass =
+    window.AudioContext || window.webkitAudioContext;
+
+  if (!AudioContextClass) return;
+
+  const ctx = new AudioContextClass();
+  const master = ctx.createGain();
+  const musicGain = ctx.createGain();
+  const sfxGain = ctx.createGain();
+
+  musicGain.gain.value =
+    Number(localStorage.getItem("apc_music_volume") ?? 60) / 100;
+
+  sfxGain.gain.value =
+    Number(localStorage.getItem("apc_sfx_volume") ?? 80) / 100;
+
+  musicGain.connect(master);
+  sfxGain.connect(master);
+  master.connect(ctx.destination);
+
+  APC.audio.context = ctx;
+  APC.audio.master = master;
+  APC.audio.musicGain = musicGain;
+  APC.audio.sfxGain = sfxGain;
+  APC.audio.ready = true;
+
+  ctx.resume();
+};
+
+APC_playTone = function(frequency, duration, type, volume) {
+  if (!APC.soundEnabled) return;
+
+  APC_initAudio();
+
+  const audio = APC.audio;
+  if (!audio.ready) return;
+
+  const ctx = audio.context;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = type || "sine";
+  osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+
+  gain.gain.setValueAtTime(
+    Math.max(0.001, volume || 0.08),
+    ctx.currentTime
+  );
+
+  gain.gain.exponentialRampToValueAtTime(
+    0.001,
+    ctx.currentTime + duration
+  );
+
+  osc.connect(gain);
+  gain.connect(audio.sfxGain);
+
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+};
+
+APC_sounds = {
+  button: function() {
+    APC_playTone(650, 0.07, "sine", 0.04);
+  },
+
+  striker: function() {
+    APC_playTone(180, 0.12, "triangle", 0.12);
+  },
+
+  collision: function() {
+    APC_playTone(420, 0.06, "triangle", 0.045);
+  },
+
+  pocket: function() {
+    APC_playTone(780, 0.18, "sine", 0.09);
+  },
+
+  win: function() {
+    APC_playTone(880, 0.15, "sine", 0.08);
+    setTimeout(function() {
+      APC_playTone(1100, 0.22, "sine", 0.08);
+    }, 130);
+  }
+};
+
+/* Browsers require a user gesture before audio playback */
+document.addEventListener("pointerdown", function() {
+  APC_initAudio();
+}, { once: true });
+
+/* Connect sound to striker launch */
+const APC_oldShootStriker = APC_shootStriker;
+
+APC_shootStriker = function(dx, dy, power) {
+  APC_sounds.striker();
+  APC_oldShootStriker(dx, dy, power);
+};
+
+/* Connect sound to coin pockets */
+const APC_oldDrawBoard = APC_drawBoard;
+
+APC_drawBoard = function() {
+  APC_oldDrawBoard();
+};
+
+console.log("PART 03-F loaded: sound effects engine");
+    </script>
+  
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 03-G: AI OPPONENT
+========================================= */
+
+APC.ai = {
+  enabled: true,
+  thinking: false,
+  difficulty: 1
+};
+
+APC_aiTakeTurn = function() {
+  if (APC.mode !== "ai") return;
+  if (APC.paused || !APC.gameStarted) return;
+  if (APC.ai.thinking || APC.physics.active) return;
+
+  const turn = APC.turn;
+
+  if (turn.current === 0) return;
+
+  APC.ai.thinking = true;
+
+  const level = Number(APC.level || 1);
+  APC.ai.difficulty = Math.min(3, Math.max(1, level));
+
+  setTimeout(function() {
+    if (APC.paused || !APC.gameStarted) {
+      APC.ai.thinking = false;
+      return;
+    }
+
+    const b = APC.board;
+    const st = b.striker;
+
+    if (!st || !b.coins.length) {
+      APC.ai.thinking = false;
+      APC_nextTurn();
+      return;
+    }
+
+    /* Find nearest remaining coin */
+    let target = b.coins[0];
+    let bestDistance = Infinity;
+
+    b.coins.forEach(function(coin) {
+      const d = Math.hypot(coin.x - st.x, coin.y - st.y);
+      if (d < bestDistance) {
+        bestDistance = d;
+        target = coin;
+      }
+    });
+
+    /* Aim approximately towards target */
+    let dx = target.x - st.x;
+    let dy = target.y - st.y;
+    const distance = Math.hypot(dx, dy) || 1;
+
+    dx /= distance;
+    dy /= distance;
+
+    /* Slightly vary AI accuracy by difficulty */
+    const error = (4 - APC.ai.difficulty) * 0.06;
+    dx += (Math.random() - 0.5) * error;
+    dy += (Math.random() - 0.5) * error;
+
+    const adjustedDistance = Math.hypot(dx, dy) || 1;
+    dx /= adjustedDistance;
+    dy /= adjustedDistance;
+
+    const power = 40 + APC.ai.difficulty * 15;
+
+    APC.ai.thinking = false;
+    APC_shootStriker(dx, dy, power);
+
+  }, 900);
+};
+
+/* Trigger AI after a human shot settles */
+const APC_turnAfterHuman = APC_nextTurn;
+
+APC_nextTurn = function() {
+  APC_turnAfterHuman();
+
+  if (
+    APC.mode === "ai" &&
+    APC.turn.current !== 0 &&
+    !APC.paused
+  ) {
+    APC_aiTakeTurn();
+  }
+};
+
+console.log("PART 03-G loaded: basic AI opponent");
+</script>
+  
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 03-H: PROGRESS & LEVEL SYSTEM
+========================================= */
+
+APC.progress = {
+  level: Number(localStorage.getItem("apc_level") || 1),
+  xp: Number(localStorage.getItem("apc_xp") || 0),
+  coins: Number(localStorage.getItem("apc_reward_coins") || 0),
+  matches: Number(localStorage.getItem("apc_matches") || 0),
+  wins: Number(localStorage.getItem("apc_wins") || 0)
+};
+
+APC_saveProgress = function() {
+  const p = APC.progress;
+
+  localStorage.setItem("apc_level", p.level);
+  localStorage.setItem("apc_xp", p.xp);
+  localStorage.setItem("apc_reward_coins", p.coins);
+  localStorage.setItem("apc_matches", p.matches);
+  localStorage.setItem("apc_wins", p.wins);
+};
+
+APC_addXP = function(amount) {
+  const p = APC.progress;
+
+  p.xp += Math.max(0, Number(amount) || 0);
+
+  while (p.xp >= p.level * 100) {
+    p.xp -= p.level * 100;
+    p.level++;
+    p.coins += 100;
+
+    alert(
+      "LEVEL UP!\nLevel " + p.level +
+      "\nBonus: 100 coins"
+    );
+  }
+
+  APC_saveProgress();
+
+  const levelLabel = document.getElementById("game-level");
+  if (levelLabel) levelLabel.textContent = "LEVEL " + p.level;
+};
+
+APC_finishMatch = function(won) {
+  const p = APC.progress;
+
+  p.matches++;
+
+  if (won) {
+    p.wins++;
+    p.coins += 50;
+    APC_addXP(50);
+  } else {
+    APC_addXP(15);
+  }
+
+  APC_saveProgress();
+
+  const matches = document.getElementById("stat-matches");
+  const wins = document.getElementById("stat-wins");
+  const level = document.getElementById("stat-level");
+
+  if (matches) matches.textContent = p.matches;
+  if (wins) wins.textContent = p.wins;
+  if (level) level.textContent = p.level;
+};
+
+/* Update the level label */
+const APC_levelLabel = document.getElementById("game-level");
+
+if (APC_levelLabel) {
+  APC_levelLabel.textContent = "LEVEL " + APC.progress.level;
+}
+
+/* Populate the profile statistics */
+const APC_profileMatches = document.getElementById("stat-matches");
+const APC_profileWins = document.getElementById("stat-wins");
+const APC_profileLevel = document.getElementById("stat-level");
+
+if (APC_profileMatches) {
+  APC_profileMatches.textContent = APC.progress.matches;
+}
+if (APC_profileWins) {
+  APC_profileWins.textContent = APC.progress.wins;
+}
+if (APC_profileLevel) {
+  APC_profileLevel.textContent = APC.progress.level;
+}
+
+APC.level = APC.progress.level;
+
+console.log("PART 03-H loaded: progress and level storage");
+  </script>
+  
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 03-I: QUEEN & FOUL SYSTEM
+========================================= */
+
+APC.rules = {
+  queenPocketed: false,
+  queenCovered: false,
+  pendingCover: false,
+  foulCount: 0
+};
+
+APC_resetRules = function() {
+  APC.rules.queenPocketed = false;
+  APC.rules.queenCovered = false;
+  APC.rules.pendingCover = false;
+  APC.rules.foulCount = 0;
+};
+
+APC.rules.lastTurnPocketed = false;
+
+/* Wrap the existing pocket handler */
+const APC_previousAnimateForRules = APC_animatePhysics;
+
+APC_animatePhysics = function() {
+  const before = APC.coinsPocketed || 0;
+
+  APC_previousAnimateForRules();
+
+  const after = APC.coinsPocketed || 0;
+
+  if (after > before) {
+    APC.rules.lastTurnPocketed = true;
+  }
+};
+
+/* Basic queen-cover validation after a shot settles */
+const APC_previousNextTurnRules = APC_nextTurn;
+
+APC_nextTurn = function() {
+  const rules = APC.rules;
+
+  if (rules.pendingCover) {
+    if (rules.lastTurnPocketed) {
+      rules.queenCovered = true;
+      rules.pendingCover = false;
+    } else {
+      rules.queenPocketed = false;
+      rules.pendingCover = false;
+
+      alert("Queen not covered. Queen rule applied.");
+    }
+  }
+
+  rules.lastTurnPocketed = false;
+
+  APC_previousNextTurnRules();
+};
+
+/* Record queen pocket events */
+const APC_previousShootForQueen = APC_shootStriker;
+
+APC_shootStriker = function(dx, dy, power) {
+  const queenWasPresent = APC.board.coins.some(function(coin) {
+    return coin.queen;
+  });
+
+  APC_previousShootForQueen(dx, dy, power);
+
+  if (queenWasPresent) {
+    const originalFilter = APC.board.coins.filter;
+
+    /* Queen is tracked by the pocket counter in the physics engine. */
+    if (!APC.board.coins.some(function(coin) {
+      return coin.queen;
+    })) {
+      APC.rules.queenPocketed = true;
+      APC.rules.pendingCover = true;
+      APC.rules.queenCovered = false;
+    }
+  }
+};
+
+/* Reset rule state on restart */
+const APC_previousRestartRules = APC_restartMatch;
+
+APC_restartMatch = function() {
+  APC_previousRestartRules();
+  APC_resetRules();
+};
+
+APC_resetRules();
+
+console.log("PART 03-I loaded: basic queen and foul tracking");
+</script>
+  
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 04-A: PLAYER PROFILE SYSTEM
+========================================= */
+
+APC.profile = {
+  id: localStorage.getItem("apc_player_id"),
+  name: localStorage.getItem("apc_player_name") || "Carrom Player",
+  avatar: localStorage.getItem("apc_player_avatar") || "🎯"
+};
+
+/* Generate a unique local player ID */
+if (!APC.profile.id) {
+  APC.profile.id =
+    "APC-" +
+    Math.random().toString(36).slice(2, 6).toUpperCase() +
+    "-" +
+    Date.now().toString(36).slice(-5).toUpperCase();
+
+  localStorage.setItem("apc_player_id", APC.profile.id);
+}
+
+APC_updateProfile = function() {
+  const nameInput = document.getElementById("profile-name");
+  const idLabel = document.getElementById("profile-id");
+
+  if (nameInput) {
+    nameInput.value = APC.profile.name;
+  }
+
+  if (idLabel) {
+    idLabel.textContent = APC.profile.id;
+  }
+};
+
+/* Save edited player name */
+const APC_profileNameInput =
+  document.getElementById("profile-name");
+
+if (APC_profileNameInput) {
+  APC_profileNameInput.addEventListener("change", function() {
+    const newName = this.value.trim().slice(0, 20);
+
+    if (!newName) {
+      this.value = APC.profile.name;
+      return;
+    }
+
+    APC.profile.name = newName;
+    localStorage.setItem("apc_player_name", newName);
+    APC_updateProfile();
+  });
+}
+
+/* Refresh profile whenever the profile button is clicked */
+const APC_profileButton = document.getElementById("menu-profile");
+
+if (APC_profileButton) {
+  APC_profileButton.addEventListener("click", function() {
+    APC_updateProfile();
+  });
+}
+
+/* Add a copy-ID action */
+APC_copyPlayerID = async function() {
+  try {
+    await navigator.clipboard.writeText(APC.profile.id);
+    alert("Player ID copied:\n" + APC.profile.id);
+  } catch (error) {
+    prompt("Copy your Player ID:", APC.profile.id);
+  }
+};
+
+APC_updateProfile();
+
+console.log("PART 04-A loaded: local player profile");
+</script>
+  
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 04-B: DAILY REWARDS
+========================================= */
+
+APC.rewards = {
+  dailyCoins: 100,
+  streak: Number(localStorage.getItem("apc_daily_streak") || 0)
+};
+
+APC_renderRewards = function() {
+  const overlay = document.getElementById("rewards-overlay");
+  if (!overlay || document.getElementById("apc-daily-card")) return;
+
+  const card = document.createElement("div");
+  card.id = "apc-daily-card";
+  card.style.cssText =
+    "padding:20px;margin:16px;border-radius:18px;" +
+    "background:linear-gradient(135deg,#242039,#15131f);" +
+    "color:white;text-align:center;";
+
+  card.innerHTML = `
+    <div style="font-size:42px">🪙</div>
+    <h2 style="margin:8px 0">Daily Reward</h2>
+    <p>Claim 100 free coins once every day.</p>
+    <p id="apc-reward-status"></p>
+    <button id="apc-claim-reward"
+      style="padding:12px 22px;border:0;border-radius:12px;
+      background:#a78bfa;color:#171324;font-weight:bold;">
+      CLAIM 100 COINS
+    </button>
+    <p style="margin-top:12px">Current coins: 
+      <strong id="apc-reward-balance">0</strong>
+    </p>
+  `;
+
+  overlay.appendChild(card);
+
+  const claimButton = card.querySelector("#apc-claim-reward");
+  const status = card.querySelector("#apc-reward-status");
+
+  function updateBalance() {
+    card.querySelector("#apc-reward-balance").textContent =
+      APC.progress.coins;
+  }
+
+  function checkClaim() {
+    const today = new Date().toISOString().slice(0, 10);
+    const claimed = localStorage.getItem("apc_last_daily_reward");
+
+    if (claimed === today) {
+      claimButton.disabled = true;
+      claimButton.textContent = "ALREADY CLAIMED";
+      status.textContent = "Come back tomorrow!";
+    } else {
+      claimButton.disabled = false;
+      claimButton.textContent = "CLAIM 100 COINS";
+      status.textContent = "Your daily reward is ready!";
+    }
+
+    updateBalance();
+  }
+
+  claimButton.onclick = function() {
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (localStorage.getItem("apc_last_daily_reward") === today) {
+      checkClaim();
+      return;
+    }
+
+    APC.progress.coins += APC.rewards.dailyCoins;
+    localStorage.setItem("apc_last_daily_reward", today);
+
+    APC.rewards.streak++;
+    localStorage.setItem("apc_daily_streak", APC.rewards.streak);
+
+    APC_saveProgress();
+    APC_sounds.button();
+
+    status.textContent = "Reward claimed successfully!";
+    checkClaim();
+  };
+
+  checkClaim();
+};
+
+APC_renderRewards();
+
+console.log("PART 04-B loaded: daily rewards");
+  </script>
+  
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 04-C: LANGUAGE EXTENSION
+========================================= */
+
+APC_EXTRA_LANGUAGES = {
+  es: {
+    name: "Español",
+    translations: {
+      "PLAY VS AI": "JUGAR CONTRA IA",
+      "PLAY OFFLINE": "JUGAR SIN CONEXIÓN",
+      "ONLINE FRIENDS": "AMIGOS EN LÍNEA",
+      "SETTINGS": "AJUSTES",
+      "PROFILE": "PERFIL",
+      "LEADERBOARD": "CLASIFICACIÓN",
+      "DAILY REWARD": "RECOMPENSA DIARIA",
+      "START GAME": "INICIAR JUEGO",
+      "PAUSE": "PAUSA",
+      "RESUME": "CONTINUAR",
+      "RESTART": "REINICIAR",
+      "QUIT": "SALIR"
+    }
+  },
+
+  it: {
+    name: "Italiano",
+    translations: {
+      "PLAY VS AI": "GIOCA CONTRO IA",
+      "PLAY OFFLINE": "GIOCA OFFLINE",
+      "ONLINE FRIENDS": "AMICI ONLINE",
+      "SETTINGS": "IMPOSTAZIONI",
+      "PROFILE": "PROFILO",
+      "LEADERBOARD": "CLASSIFICA",
+      "DAILY REWARD": "RICOMPENSA GIORNALIERA",
+      "START GAME": "INIZIA PARTITA",
+      "PAUSE": "PAUSA",
+      "RESUME": "RIPRENDI",
+      "RESTART": "RICOMINCIA",
+      "QUIT": "ESCI"
+    }
+  },
+
+  nl: {
+    name: "Nederlands",
+    translations: {
+      "PLAY VS AI": "SPEEL TEGEN AI",
+      "PLAY OFFLINE": "OFFLINE SPELEN",
+      "ONLINE FRIENDS": "ONLINE VRIENDEN",
+      "SETTINGS": "INSTELLINGEN",
+      "PROFILE": "PROFIEL",
+      "LEADERBOARD": "RANGLIJST",
+      "DAILY REWARD": "DAGELIJKSE BELONING",
+      "START GAME": "START SPEL",
+      "PAUSE": "PAUZE",
+      "RESUME": "VERDER",
+      "RESTART": "OPNIEUW",
+      "QUIT": "STOPPEN"
+    }
+  },
+
+  ru: {
+    name: "Русский",
+    translations: {
+      "PLAY VS AI": "ИГРАТЬ ПРОТИВ ИИ",
+      "PLAY OFFLINE": "ИГРАТЬ ОФЛАЙН",
+      "ONLINE FRIENDS": "ДРУЗЬЯ ОНЛАЙН",
+      "SETTINGS": "НАСТРОЙКИ",
+      "PROFILE": "ПРОФИЛЬ",
+      "LEADERBOARD": "РЕЙТИНГ",
+      "DAILY REWARD": "ЕЖЕДНЕВНАЯ НАГРАДА",
+      "START GAME": "НАЧАТЬ ИГРУ",
+      "PAUSE": "ПАУЗА",
+      "RESUME": "ПРОДОЛЖИТЬ",
+      "RESTART": "ЗАНОВО",
+      "QUIT": "ВЫЙТИ"
+    }
+  },
+
+  pt: {
+    name: "Português",
+    translations: {
+      "PLAY VS AI": "JOGAR CONTRA IA",
+      "PLAY OFFLINE": "JOGAR OFFLINE",
+      "ONLINE FRIENDS": "AMIGOS ONLINE",
+      "SETTINGS": "CONFIGURAÇÕES",
+      "PROFILE": "PERFIL",
+      "LEADERBOARD": "CLASSIFICAÇÃO",
+      "DAILY REWARD": "RECOMPENSA DIÁRIA",
+      "START GAME": "INICIAR JOGO",
+      "PAUSE": "PAUSAR",
+      "RESUME": "CONTINUAR",
+      "RESTART": "REINICIAR",
+      "QUIT": "SAIR"
+    }
+  }
+};
+
+APC_translateExtra = function(code) {
+  const language = APC_EXTRA_LANGUAGES[code];
+  if (!language) return false;
+
+  const translations = language.translations;
+
+  document.querySelectorAll("button").forEach(function(button) {
+    const original = button.dataset.apcOriginal ||
+      button.textContent.trim();
+
+    if (!button.dataset.apcOriginal) {
+      button.dataset.apcOriginal = original;
+    }
+
+    if (translations[original]) {
+      button.textContent = translations[original];
+    }
+  });
+
+  return true;
+};
+
+/* Preserve original language function */
+const APC_baseSetLanguage = APC_setLanguage;
+
+APC_setLanguage = function(code) {
+  if (APC_EXTRA_LANGUAGES[code]) {
+    APC.language = code;
+    localStorage.setItem("apc_language", code);
+    APC_translateExtra(code);
+    APC_buildLanguageMenu();
+    return;
+  }
+
+  APC_baseSetLanguage(code);
+};
+
+console.log("PART 04-C loaded: additional language translations");
+      </script>
+  
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 04-D: ADVANCED SETTINGS
+========================================= */
+
+APC.settings = {
+  vibration: localStorage.getItem("apc_vibration") !== "false",
+  leftHanded: localStorage.getItem("apc_left_handed") === "true",
+  graphics: localStorage.getItem("apc_graphics") || "high"
+};
+
+/* Restore saved settings */
+function APC_restoreToggle(id, value) {
+  const element = document.getElementById(id);
+  if (!element) return;
+
+  element.setAttribute("aria-pressed", String(value));
+  element.classList.toggle("enabled", value);
+}
+
+APC_restoreToggle("vibration-toggle", APC.settings.vibration);
+APC_restoreToggle("left-handed-toggle", APC.settings.leftHanded);
+
+const APC_graphicsSelect = document.getElementById("graphics-quality");
+
+if (APC_graphicsSelect) {
+  APC_graphicsSelect.value = APC.settings.graphics;
+}
+
+/* Vibration */
+const APC_vibrationButton = document.getElementById("vibration-toggle");
+
+if (APC_vibrationButton) {
+  APC_vibrationButton.onclick = function() {
+    APC.settings.vibration = !APC.settings.vibration;
+
+    localStorage.setItem(
+      "apc_vibration",
+      String(APC.settings.vibration)
+    );
+
+    APC_restoreToggle(
+      "vibration-toggle",
+      APC.settings.vibration
+    );
+
+    if (APC.settings.vibration && navigator.vibrate) {
+      navigator.vibrate(35);
+    }
+
+    APC_sounds.button();
+  };
+}
+
+/* Left-handed layout preference */
+const APC_leftHandButton = document.getElementById("left-handed-toggle");
+
+if (APC_leftHandButton) {
+  APC_leftHandButton.onclick = function() {
+    APC.settings.leftHanded = !APC.settings.leftHanded;
+
+    localStorage.setItem(
+      "apc_left_handed",
+      String(APC.settings.leftHanded)
+    );
+
+    APC_restoreToggle(
+      "left-handed-toggle",
+      APC.settings.leftHanded
+    );
+
+    document.getElementById("app").classList.toggle(
+      "apc-left-handed",
+      APC.settings.leftHanded
+    );
+
+    APC_sounds.button();
+  };
+}
+
+/* Graphics quality */
+if (APC_graphicsSelect) {
+  APC_graphicsSelect.onchange = function() {
+    APC.settings.graphics = this.value;
+
+    localStorage.setItem(
+      "apc_graphics",
+      APC.settings.graphics
+    );
+
+    document.getElementById("app").dataset.graphics =
+      APC.settings.graphics;
+  };
+}
+
+/* Apply saved layout on launch */
+document.getElementById("app").classList.toggle(
+  "apc-left-handed",
+  APC.settings.leftHanded
+);
+
+document.getElementById("app").dataset.graphics =
+  APC.settings.graphics;
+
+console.log("PART 04-D loaded: advanced settings");
+    </script>
+  
+<script>
+/* =========================================
+   ADVANCED PRO CARROM
+   PART 04-E: LEADERBOARD & MATCH HISTORY
+========================================= */
+
+APC.records = JSON.parse(
+  localStorage.getItem("apc_match_records") || "[]"
+);
+
+APC_saveMatchRecord = function(result, score) {
+  APC.records.unshift({
+    player: APC.profile.name,
+    result: result,
+    score: Number(score) || 0,
+    date: new Date().toLocaleDateString()
+  });
+
+  APC.records = APC.records.slice(0, 30);
+
+  localStorage.setItem(
+    "apc_match_records",
+    JSON.stringify(APC.records)
+  );
+
+  APC_renderLeaderboard();
+};
+
+APC_renderLeaderboard = function() {
+  const container = document.getElementById("leaderboard-content");
+  if (!container) return;
+
+  const progress = APC.progress || {
+    matches: 0,
+    wins: 0,
+    coins: 0,
+    level: 1
+  };
+
+  container.replaceChildren();
+
+  const heading = document.createElement("h3");
+  heading.textContent = "YOUR GAME STATISTICS";
+  container.appendChild(heading);
+
+  const stats = document.createElement("p");
+  stats.textContent =
+    "Matches: " + progress.matches +
+    " | Wins: " + progress.wins +
+    " | Level: " + progress.level;
+  container.appendChild(stats);
+
+  const subheading = document.createElement("h3");
+  subheading.textContent = "RECENT MATCHES";
+  container.appendChild(subheading);
+
+  if (!APC.records.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "Your completed matches will appear here.";
+    container.appendChild(empty);
+    return;
+  }
+
+  APC.records.forEach(function(record, index) {
+    const row = document.createElement("div");
+
+    row.style.cssText =
+      "display:flex;justify-content:space-between;gap:8px;" +
+      "padding:12px;margin:8px 0;border-radius:10px;" +
+      "background:rgba(255,255,255,.06);";
+
+    const details = document.createElement("span");
+    details.textContent =
+      (index + 1) + ". " + record.player + " · " + record.date;
+
+    const result = document.createElement("strong");
+    result.textContent =
+      record.result + " · " + record.score;
+
+    row.append(details, result);
+    container.appendChild(row);
+  });
+};
+
+/* Refresh leaderboard whenever opened */
+var APC_leaderboardButton = document.getElementById("leaderboard-open");
+
+if (APC_leaderboardButton) {
+  APC_leaderboardButton.addEventListener("click", function() {
+    APC_renderLeaderboard();
+  });
+}
+
+APC_renderLeaderboard();
+
+console.log("PART 04-E loaded: local leaderboard and match records");
+                      </script>
   
 
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-F: MATCH FINISH + SAVE RESULTS
+===================================================== */
+
+APC.matchFinish = {
+  ended: false
+};
+
+APC_endMatch = function(won) {
+  if (APC.matchFinish.ended) return;
+
+  APC.matchFinish.ended = true;
+  APC.physics.active = false;
+  APC.paused = true;
+
+  var result = won ? "WIN" : "LOSS";
+  var score = Number(APC.score || 0);
+
+  if (typeof APC_finishMatch === "function") {
+    APC_finishMatch(!!won);
+  }
+
+  if (typeof APC_saveMatchRecord === "function") {
+    APC_saveMatchRecord(result, score);
+  }
+
+  var title = document.getElementById("pause-title");
+  var message = document.getElementById("pause-message");
+  var actions = document.getElementById("pause-actions");
+
+  if (title) title.textContent = won ? "🏆 YOU WIN!" : "MATCH FINISHED";
+  if (message) {
+    message.textContent =
+      "Final score: " + score +
+      " • XP and local match record updated.";
+  }
+
+  if (actions) actions.style.display = "flex";
+
+  var pause = document.getElementById("pause-overlay");
+  if (pause) pause.classList.add("active");
+
+  if (typeof APC_renderLeaderboard === "function") {
+    APC_renderLeaderboard();
+  }
+};
+
+/* Reset finish state when starting or restarting */
+if (typeof APC_startMatch === "function") {
+  var APC_startBeforeFinish = APC_startMatch;
+
+  APC_startMatch = function() {
+    APC.matchFinish.ended = false;
+    APC_startBeforeFinish.apply(this, arguments);
+  };
+}
+
+if (typeof APC_restartMatch === "function") {
+  var APC_restartBeforeFinish = APC_restartMatch;
+
+  APC_restartMatch = function() {
+    APC.matchFinish.ended = false;
+    APC_restartBeforeFinish.apply(this, arguments);
+  };
+}
+
+/* Check after each completed turn */
+if (typeof APC_nextTurn === "function") {
+  var APC_turnBeforeFinish = APC_nextTurn;
+
+  APC_nextTurn = function() {
+    if (APC.matchFinish.ended) return;
+
+    APC_turnBeforeFinish.apply(this, arguments);
+
+    if (
+      APC.board &&
+      Array.isArray(APC.board.coins) &&
+      APC.board.coins.length === 0
+    ) {
+      APC_endMatch(Number(APC.score || 0) > 0);
+    }
+  };
+}
+
+console.log("PART 04-F loaded: match result saving enabled.");
+        </script>
+  
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-G: GAME SOUND EFFECTS
+===================================================== */
+
+APC.soundFX = APC.soundFX || {
+  lastCoinCount: -1,
+  lastClickTime: 0
+};
+
+/* Safely play an existing sound */
+APC_playGameSound = function(soundName) {
+  if (APC.soundEnabled === false) return;
+
+  try {
+    if (
+      APC_sounds &&
+      typeof APC_sounds[soundName] === "function"
+    ) {
+      APC_sounds[soundName]();
+    }
+  } catch (error) {
+    console.warn("Sound unavailable:", soundName);
+  }
+};
+
+/* Button and menu interaction sounds */
+document.addEventListener("click", function(event) {
+  var button = event.target.closest(
+    "button, [role='button'], .menu-item"
+  );
+
+  if (!button || button.disabled) return;
+
+  var now = Date.now();
+
+  if (now - APC.soundFX.lastClickTime < 90) return;
+
+  APC.soundFX.lastClickTime = now;
+  APC_playGameSound("button");
+});
+
+/* Detect coins pocketed during physics animation */
+if (typeof APC_animatePhysics === "function") {
+  var APC_soundPreviousAnimation = APC_animatePhysics;
+
+  APC_animatePhysics = function() {
+    var before = APC.board && Array.isArray(APC.board.coins)
+      ? APC.board.coins.length
+      : 0;
+
+    APC_soundPreviousAnimation.apply(this, arguments);
+
+    var after = APC.board && Array.isArray(APC.board.coins)
+      ? APC.board.coins.length
+      : 0;
+
+    if (after < before) {
+      APC_playGameSound("pocket");
+    }
+  };
+}
+
+/* Striker sound on a valid shot */
+if (typeof APC_shootStriker === "function") {
+  var APC_soundPreviousShot = APC_shootStriker;
+
+  APC_shootStriker = function() {
+    APC_soundPreviousShot.apply(this, arguments);
+  };
+}
+
+/* Restore the sound toggle label */
+var APC_soundButton = document.getElementById("sound-toggle");
+
+if (APC_soundButton) {
+  APC_soundButton.addEventListener("click", function() {
+    setTimeout(function() {
+      APC_soundButton.setAttribute(
+        "aria-pressed",
+        String(APC.soundEnabled !== false)
+      );
+      APC_soundButton.title =
+        APC.soundEnabled === false ? "Sound Off" : "Sound On";
+    }, 0);
+  });
+}
+
+console.log("PART 04-G loaded: sound effects connected.");
+</script>
+  
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-H: AI DIFFICULTY + SMART SHOTS
+===================================================== */
+
+APC.aiDifficulty = APC.aiDifficulty || {
+  easy:   { accuracy: 0.55, powerMin: 0.35, powerMax: 0.60 },
+  medium: { accuracy: 0.76, powerMin: 0.45, powerMax: 0.78 },
+  hard:   { accuracy: 0.91, powerMin: 0.60, powerMax: 0.92 },
+  pro:    { accuracy: 0.97, powerMin: 0.70, powerMax: 1.00 }
+};
+
+APC_getDifficulty = function() {
+  var level = Math.max(1, Number(APC.level || 1));
+
+  if (level >= 20) return "pro";
+  if (level >= 10) return "hard";
+  if (level >= 4) return "medium";
+
+  return "easy";
+};
+
+APC_getSmartShot = function() {
+  var board = APC.board;
+
+  if (!board || !board.striker || !board.coins) return null;
+
+  var striker = board.striker;
+  var coins = board.coins.filter(function(coin) {
+    return coin && Number.isFinite(coin.x) &&
+      Number.isFinite(coin.y);
+  });
+
+  if (!coins.length) return null;
+
+  var difficulty = APC.aiDifficulty[APC_getDifficulty()];
+  var pockets = [
+    { x: 18, y: 18 },
+    { x: board.width - 18, y: 18 },
+    { x: 18, y: board.height - 18 },
+    { x: board.width - 18, y: board.height - 18 }
+  ];
+
+  var bestShot = null;
+  var bestScore = -Infinity;
+
+  coins.forEach(function(coin) {
+    pockets.forEach(function(pocket) {
+      var dx = pocket.x - coin.x;
+      var dy = pocket.y - coin.y;
+      var pocketDistance = Math.hypot(dx, dy) || 1;
+
+      var targetX = coin.x - dx / pocketDistance * 24;
+      var targetY = coin.y - dy / pocketDistance * 24;
+
+      var shotX = targetX - striker.x;
+      var shotY = targetY - striker.y;
+      var shotDistance = Math.hypot(shotX, shotY) || 1;
+
+      var score =
+        1000 / (pocketDistance + 20) -
+        shotDistance * 0.12 +
+        Math.random() * (1 - difficulty.accuracy) * 30;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestShot = {
+          dx: shotX / shotDistance,
+          dy: shotY / shotDistance,
+          power: difficulty.powerMin +
+            Math.random() *
+            (difficulty.powerMax - difficulty.powerMin)
+        };
+      }
+    });
+  });
+
+  return bestShot;
+};
+
+/* Improve AI aiming while keeping the existing AI turn system */
+APC_aiTakeTurn = function() {
+  if (
+    !APC.board ||
+    !APC.board.striker ||
+    !APC.board.coins ||
+    !APC.board.coins.length ||
+    APC.physics.active ||
+    APC.paused
+  ) return;
+
+  var shot = APC_getSmartShot();
+
+  if (!shot) return;
+
+  var delay = APC_getDifficulty() === "pro" ? 450 : 700;
+
+  setTimeout(function() {
+    if (
+      APC.paused ||
+      !APC.gameStarted ||
+      APC.physics.active
+    ) return;
+
+    APC_shootStriker(shot.dx, shot.dy, shot.power);
+  }, delay);
+};
+
+console.log(
+  "PART 04-H loaded: AI difficulty = " + APC_getDifficulty()
+);
+      </script>
+ 
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-I: MATCH HISTORY + PLAYER STATISTICS
+===================================================== */
+
+APC.history = APC.history || {
+  getAll: function() {
+    try {
+      var data = JSON.parse(
+        localStorage.getItem("apc_match_history") || "[]"
+      );
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      return [];
+    }
+  },
+
+  save: function(result, score) {
+    var records = this.getAll();
+
+    records.unshift({
+      id: Date.now(),
+      result: String(result),
+      score: Number(score) || 0,
+      mode: APC.mode || "ai",
+      players: Number(APC.playerCount) || 2,
+      date: new Date().toLocaleString()
+    });
+
+    records = records.slice(0, 50);
+
+    try {
+      localStorage.setItem(
+        "apc_match_history",
+        JSON.stringify(records)
+      );
+    } catch (error) {
+      console.warn("Could not save match history.");
+    }
+
+    this.render();
+  },
+
+  render: function() {
+    var container = document.getElementById("leaderboard-content");
+    if (!container) return;
+
+    var records = this.getAll();
+    var section = document.createElement("section");
+    section.className = "apc-history-section";
+    section.style.cssText =
+      "margin-top:16px;padding:14px;border-radius:16px;" +
+      "background:rgba(255,255,255,.05);color:#fff";
+
+    var heading = document.createElement("h3");
+    heading.textContent = "Recent Match History";
+    heading.style.cssText =
+      "font-size:16px;font-weight:700;margin-bottom:12px";
+    section.appendChild(heading);
+
+    if (!records.length) {
+      var empty = document.createElement("p");
+      empty.textContent = "Your completed matches will appear here.";
+      empty.style.cssText = "opacity:.7;font-size:13px";
+      section.appendChild(empty);
+    } else {
+      records.slice(0, 10).forEach(function(record) {
+        var row = document.createElement("div");
+        row.style.cssText =
+          "display:flex;justify-content:space-between;gap:12px;" +
+          "padding:10px 0;border-bottom:1px solid #ffffff18";
+
+        var info = document.createElement("div");
+        var name = document.createElement("strong");
+        name.textContent = record.result === "WIN"
+          ? "🏆 Win"
+          : "Match";
+
+        var date = document.createElement("div");
+        date.textContent = record.date || "";
+        date.style.cssText = "font-size:11px;opacity:.65;margin-top:4px";
+
+        info.append(name, date);
+
+        var score = document.createElement("strong");
+        score.textContent = String(record.score || 0) + " pts";
+
+        row.append(info, score);
+        section.appendChild(row);
+      });
+    }
+
+    container.appendChild(section);
+  }
+};
+
+/* Save history alongside the existing result handler */
+if (typeof APC_endMatch === "function") {
+  var APC_historyPreviousEnd = APC_endMatch;
+
+  APC_endMatch = function(won) {
+    var alreadyEnded = APC.matchFinish && APC.matchFinish.ended;
+    APC_historyPreviousEnd.apply(this, arguments);
+
+    if (!alreadyEnded) {
+      APC.history.save(
+        won ? "WIN" : "LOSS",
+        Number(APC.score || 0)
+      );
+    }
+  };
+}
+
+/* Refresh history when the leaderboard opens */
+var APC_historyLeaderboardButton =
+  document.getElementById("leaderboard-open");
+
+if (APC_historyLeaderboardButton) {
+  APC_historyLeaderboardButton.addEventListener("click", function() {
+    setTimeout(function() {
+      var container = document.getElementById("leaderboard-content");
+      if (container) {
+        var old = container.querySelector(".apc-history-section");
+        if (old) old.remove();
+      }
+      APC.history.render();
+    }, 0);
+  });
+}
+
+console.log("PART 04-I loaded: local match history enabled.");
+          </script>
+  
+
+<script>
+/* =====================================================
+   ADVANCED PRO CARROM
+   PART 04-J: DAILY REWARDS + LOGIN BONUS
+===================================================== */
+
+APC.dailyRewards = {
+  key: "apc_daily_reward_v1",
+
+  getToday: function() {
+    var date = new Date();
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0")
+    ].join("-");
+  },
+
+  getState: function() {
+    try {
+      return JSON.parse(
+        localStorage.getItem(this.key) ||
+        '{"date":"","streak":0}'
+      );
+    } catch (error) {
+      return { date: "", streak: 0 };
+    }
+  },
+
+  claim: function() {
+    var state = this.getState();
+    var today = this.getToday();
+
+    if (state.date === today) {
+      alert("Daily reward already claimed today!");
+      return;
+    }
+
+    var yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+
+    var yesterday = [
+      yesterdayDate.getFullYear(),
+      String(yesterdayDate.getMonth() + 1).padStart(2, "0"),
+      String(yesterdayDate.getDate()).padStart(2, "0")
+    ].join("-");
+
+    state.streak = state.date === yesterday
+      ? Math.min((Number(state.streak) || 0) + 1, 7)
+      : 1;
+
+    state.date = today;
+
+    var reward = 100 + (state.streak - 1) * 25;
+
+    APC.progress = APC.progress || {};
+    APC.progress.coins =
+      (Number(APC.progress.coins) || 0) + reward;
+
+    localStorage.setItem(this.key, JSON.stringify(state));
+
+    if (typeof APC_saveProgress === "function") {
+      APC_saveProgress();
+    }
+
+    alert(
+      "🎁 Daily reward claimed!\n+" +
+      reward + " coins\nStreak: " + state.streak + " day(s)"
+    );
+
+    this.render();
+  },
+
+  render: function() {
+    var container = document.getElementById("rewards-overlay");
+    if (!container) return;
+
+    var old = container.querySelector(".apc-daily-bonus");
+    if (old) old.remove();
+
+    var state = this.getState();
+    var claimed = state.date === this.getToday();
+
+    var card = document.createElement("div");
+    card.className = "apc-daily-bonus";
+    card.style.cssText =
+      "margin:14px 0;padding:16px;border-radius:16px;" +
+      "background:linear-gradient(135deg,#312e81,#701a75);" +
+      "color:white;text-align:center";
+
+    var title = document.createElement("h3");
+    title.textContent = "🎁 Daily Login Reward";
+    title.style.cssText = "font-size:18px;font-weight:800";
+
+    var description = document.createElement("p");
+    description.textContent =
+      "Claim 100 coins + streak bonus. Current streak: " +
+      (state.streak || 0) + " day(s)";
+    description.style.cssText =
+      "font-size:13px;margin:10px 0;opacity:.9";
+
+    var button = document.createElement("button");
+    button.type = "button";
+    button.textContent = claimed ? "Claimed Today ✓" : "Claim Reward";
+    button.disabled = claimed;
+    button.style.cssText =
+      "padding:10px 18px;border-radius:10px;background:#fbbf24;" +
+      "color:#111827;font-weight:800;opacity:" +
+      (claimed ? ".55" : "1");
+
+    button.addEventListener("click", function() {
+      APC.dailyRewards.claim();
+    });
+
+    card.append(title, description, button);
+    container.appendChild(card);
+  }
+};
+
+APC.dailyRewards.render();
+
+console.log("PART 04-J loaded: daily rewards enabled.");
+</script>
+  
 
 
 
