@@ -1,141 +1,814 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#17100c">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#10100f">
+<meta name="description" content="Advanced Pro Carrom - Play, compete and challenge your friends.">
 <title>Advanced Pro Carrom</title>
+
+<!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Matter.js Physics Engine -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script>
+
+<!-- Google Font -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        gold: "#D9B56D",
+        goldlight: "#F2DCA5",
+        darkbg: "#10100F",
+        panel: "#1B1A17"
+      },
+      fontFamily: {
+        sans: ["Inter", "sans-serif"],
+        display: ["Playfair Display", "serif"]
+      }
+    }
+  }
+};
+</script>
+
 <style>
-:root{color-scheme:dark;--gold:#e8bd72;--cream:#f4dfb0;--ink:#1b110b}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#4a2d1a,#130e0b 65%);color:#fff7e8;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;min-height:100vh}
-button{touch-action:manipulation}.glass{background:linear-gradient(145deg,#332219eF,#1b120ff2);border:1px solid #a875414f;box-shadow:0 12px 35px #0006,inset 0 1px #ffffff0b}
-.gold{background:linear-gradient(135deg,#f3d79b,#bd8039);color:#27170a;font-weight:800}.outline{border:1px solid #d5a65c77;background:#25180f;color:#f6dfb4}
-#boardWrap{width:min(90vw,680px);aspect-ratio:1;margin:auto;position:relative;touch-action:none;user-select:none}
-#board{width:100%;height:100%;display:block;filter:drop-shadow(0 22px 30px #0008);touch-action:none}
-.smallcaps{letter-spacing:.18em;text-transform:uppercase;font-size:.68rem;color:#d9b77d}
-.modal{position:fixed;inset:0;background:#090604d9;backdrop-filter:blur(10px);z-index:50;display:none;align-items:center;justify-content:center;padding:18px}.modal.show{display:flex}
-.power-track{height:7px;border-radius:20px;background:#5d4731;overflow:hidden}.power-fill{height:100%;width:0;background:linear-gradient(90deg,#e6c47e,#f88a4a);transition:width .05s}
-@media(max-width:560px){#boardWrap{width:min(96vw,540px)}.desktop-only{display:none}.hudgrid{grid-template-columns:1fr 1fr}.main-layout{gap:12px}}
+:root {
+  --bg: #10100f;
+  --panel: #1b1a17;
+  --gold: #d9b56d;
+  --gold-light: #f2dca5;
+  --text: #f6f0e5;
+  --muted: #a5a096;
+  --border: rgba(217,181,109,.2);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, sans-serif;
+  overscroll-behavior: none;
+}
+
+button, input, select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--gold-light);
+  outline-offset: 3px;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(151,111,49,.12), transparent 55%),
+    var(--bg);
+}
+
+.page {
+  display: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.page.active {
+  display: flex;
+  flex-direction: column;
+  animation: pageEnter .25s ease-out;
+}
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.gold-text {
+  color: var(--gold-light);
+}
+
+.brand-title {
+  font-family: "Playfair Display", serif;
+  letter-spacing: .04em;
+}
+
+.eyebrow {
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .23em;
+  text-transform: uppercase;
+}
+
+.glass-panel {
+  background: rgba(27,26,23,.88);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.gold-button {
+  min-height: 50px;
+  border: 1px solid #f0d59a;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f0d99e, #c69b4c);
+  color: #20180c;
+  font-weight: 800;
+  box-shadow: 0 7px 24px rgba(201,158,77,.13);
+  transition: transform .16s, filter .16s;
+}
+
+.gold-button:active {
+  transform: scale(.98);
+  filter: brightness(.94);
+}
+
+.outline-button {
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255,255,255,.025);
+  color: var(--text);
+  font-weight: 650;
+  transition: background .2s, border-color .2s;
+}
+
+.outline-button:active {
+  background: rgba(217,181,109,.1);
+  border-color: var(--gold);
+}
+
+.icon-button {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 13px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.035);
+  color: var(--gold-light);
+  font-size: 18px;
+}
+
+.topbar {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  min-height: 62px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255,255,255,.055);
+  background: rgba(16,16,15,.78);
+}
+
+.scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #51432a transparent;
+}
+
+.language-popover {
+  position: absolute;
+  top: 58px;
+  right: 12px;
+  z-index: 50;
+  width: min(270px, calc(100vw - 24px));
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #201f1b;
+  box-shadow: 0 18px 50px #0009;
+}
+
+.language-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 11px;
+  border-radius: 10px;
+  color: var(--text);
+  text-align: left;
+}
+
+.language-option:hover,
+.language-option.selected {
+  background: rgba(217,181,109,.12);
+  color: var(--gold-light);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0,0,0,.76);
+  backdrop-filter: blur(8px);
+}
+
+.overlay.open {
+  display: flex;
+  animation: fadeIn .18s ease-out;
+}
+
+.dialog {
+  width: min(100%, 410px);
+  max-height: 85dvh;
+  overflow-y: auto;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 23px;
+  background: #1b1a17;
+  box-shadow: 0 25px 80px #0009;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.choice-card {
+  padding: 17px;
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: linear-gradient(145deg, #23211c, #171613);
+  transition: border-color .2s, transform .2s;
+}
+
+.choice-card:active {
+  transform: scale(.985);
+  border-color: var(--gold);
+}
+
+.choice-icon {
+  width: 43px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+  border-radius: 13px;
+  color: var(--gold-light);
+  background: rgba(217,181,109,.1);
+  font-size: 22px;
+}
+
+#game-page {
+  background: #100e0b;
+}
+
+.game-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #171510;
+  border-bottom: 1px solid var(--border);
+}
+
+#game-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse, rgba(126,89,35,.12), transparent 68%),
+    #100e0b;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.game-bottom {
+  flex-shrink: 0;
+  padding: 9px 12px max(10px, env(safe-area-inset-bottom));
+  background: #171510;
+  border-top: 1px solid var(--border);
+}
+
+.stat-pill {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: rgba(255,255,255,.025);
+}
+
+.small-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+
+.input-field {
+  width: 100%;
+  padding: 13px 14px;
+  color: var(--text);
+  background: #12110f;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  outline: none;
+}
+
+.input-field:focus {
+  border-color: var(--gold);
+}
+
+.hidden-force {
+  display: none !important;
+}
+
+@media (min-width: 700px) {
+  .home-content {
+    width: min(100%, 560px);
+    margin-inline: auto;
+  }
+  .dialog {
+    padding: 28px;
+  }
+}
+
+@media (max-height: 570px) {
+  .topbar {
+    min-height: 50px;
+    padding-block: 5px;
+  }
+  .icon-button {
+    width: 36px;
+    height: 36px;
+  }
+  .game-toolbar {
+    padding-block: 4px;
+  }
+  .game-bottom {
+    padding-block: 5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
 </style>
 </head>
-<body>
-  <header class="max-w-7xl mx-auto px-4 pt-5 pb-3 flex items-center justify-between gap-3">
- <div class="flex items-center gap-3"><div class="w-11 h-11 rounded-xl gold flex items-center justify-center text-2xl">♛</div><div><div class="smallcaps">Premium tabletop</div><h1 class="text-xl sm:text-2xl font-black tracking-tight">ADVANCED <span style="color:var(--gold)">PRO CARROM</span></h1></div></div>
- <button id="aboutTop" class="outline rounded-xl px-3 py-2 text-sm">About Developer</button>
-</header>
-<main class="max-w-7xl mx-auto px-3 sm:px-5 pb-8">
- <section id="home" class="glass rounded-3xl p-5 sm:p-8 mb-5">
-  <div class="grid md:grid-cols-[1.15fr_.85fr] gap-7 items-center">
-   <div><div class="smallcaps mb-3">Precision • Strategy • Skill</div><h2 class="text-3xl sm:text-5xl font-black leading-tight">Own the board.<br><span style="color:var(--gold)">Pocket the win.</span></h2><p class="text-stone-300 mt-4 max-w-xl">A polished carrom table with tactile striker control, live trajectory preview, turn tracking, classic coin colours and practice AI.</p>
-    <div class="flex flex-wrap gap-3 mt-6"><button id="localBtn" class="gold rounded-xl px-5 py-3">▶ Local 2 Player</button><button id="aiBtn" class="outline rounded-xl px-5 py-3">✦ AI Practice</button></div>
-   </div>
-   <div class="relative rounded-2xl p-4" style="background:radial-gradient(ellipse,#754820,#29180e 70%)"><div class="text-center smallcaps mb-2">The royal table</div><div class="mx-auto w-full max-w-xs aspect-square rounded-xl p-3" style="background:linear-gradient(135deg,#b77a3d,#603719);box-shadow:inset 0 0 0 3px #e5bc76, inset 0 0 0 8px #6d3e1b,0 12px 25px #0008"><div class="w-full h-full rounded-lg flex items-center justify-center relative" style="background:radial-gradient(#f1d9a5,#d3a76b);border:2px solid #75451f"><div class="w-24 h-24 rounded-full border-2 border-amber-900/70 flex items-center justify-center text-4xl">♛</div><div class="absolute inset-5 border border-amber-900/40 rounded-full"></div></div></div><div class="text-center text-xs text-amber-100/80 mt-3">WOOD GRAIN FINISH · 4 POCKETS</div></div>
-  </div>
- </section>
- <section id="game" class="hidden">
-  <div class="flex flex-wrap items-center justify-between gap-3 mb-3"><div><div class="smallcaps">Match in progress</div><h2 class="text-2xl font-black" id="modeTitle">Local 2 Player</h2></div><div class="flex gap-2"><button id="restartBtn" class="outline rounded-xl px-3 py-2 text-sm">↻ Restart</button><button id="menuBtn" class="outline rounded-xl px-3 py-2 text-sm">⌂ Menu</button></div></div>
-  <div class="grid lg:grid-cols-[minmax(0,1fr)_250px] gap-4 main-layout">
-   <div class="glass rounded-2xl p-2 sm:p-4"><div id="boardWrap"><canvas id="board" aria-label="Interactive carrom board"></canvas></div><div class="px-2 pt-3"><div class="flex justify-between text-xs text-amber-100/80 mb-2"><span>SHOT POWER</span><span id="powerText">Pull back to charge</span></div><div class="power-track"><div id="powerFill" class="power-fill"></div></div><p class="text-xs text-stone-400 mt-2">Drag striker sideways to position. Pull backward from the striker, then release to shoot.</p></div></div>
-   <aside class="space-y-3">
-    <div class="glass rounded-2xl p-4"><div class="smallcaps mb-3">Scoreboard</div><div class="flex items-center justify-between mb-3"><div><div class="text-sm text-stone-300" id="p1Name">Player 1 · White</div><div class="text-3xl font-black" id="p1Score">0</div></div><div class="text-xs text-stone-500">VS</div><div class="text-right"><div class="text-sm text-stone-300" id="p2Name">Player 2 · Black</div><div class="text-3xl font-black" id="p2Score">0</div></div></div><div class="rounded-xl p-3" style="background:#100b08"><div class="smallcaps">Current turn</div><div class="font-bold mt-1" id="turnLabel">Player 1 · White</div><div class="text-xs text-stone-400 mt-1" id="status">Position your striker.</div></div><div class="grid grid-cols-2 gap-2 mt-3 text-xs"><div class="rounded-lg p-2 bg-white/5">White left <b id="whiteLeft">9</b></div><div class="rounded-lg p-2 bg-white/5">Black left <b id="blackLeft">9</b></div></div></div>
-    <div class="glass rounded-2xl p-4"><div class="smallcaps mb-3">Controls</div><div class="text-sm text-stone-300 space-y-2"><p>① Slide the striker on your baseline.</p><p>② Pull it away from the target to set power.</p><p>③ Release to strike; wait for coins to settle.</p></div><button id="soundBtn" class="outline rounded-xl px-3 py-2 text-sm w-full mt-4">♫ Sound: On</button></div>
-    <div class="glass rounded-2xl p-4"><div class="smallcaps mb-2">Classic rules</div><p class="text-xs leading-5 text-stone-300">Pocket your colour to score and keep the turn. Queen is worth 3, but must be covered by pocketing your colour on the next valid shot. Foul: striker pocketed (−1 point and turn ends).</p></div>
-   </aside>
-  </div>
- </section>
- <footer class="text-center text-xs text-stone-500 pt-5">ADVANCED PRO CARROM · Made for the love of the game <button id="aboutFoot" class="underline text-amber-200 ml-2">About Developer</button></footer>
-</main>
-<div id="aboutModal" class="modal"><div class="glass rounded-3xl p-6 sm:p-8 max-w-md w-full relative"><button id="closeAbout" class="absolute right-4 top-4 text-stone-300 text-2xl" aria-label="Close">×</button><div class="smallcaps mb-2">Behind the game</div><h2 class="text-3xl font-black mb-5">About Developer</h2><div class="space-y-4"><div><div class="smallcaps">Game Name</div><div class="text-lg font-bold">Advanced Pro Carrom</div></div><div><div class="smallcaps">Founder & Developer</div><div class="text-lg font-bold">Subhash Yadav</div></div><div><div class="smallcaps">Instagram ID</div><a class="text-amber-200 underline" href="https://instagram.com/iamsubhash177" target="_blank" rel="noopener noreferrer">@iamsubhash177 ↗</a></div><div><div class="smallcaps">Email ID</div><a class="text-amber-200 underline" href="mailto:yahu9950@gmail.com">yahu9950@gmail.com</a></div></div><button id="closeAbout2" class="gold rounded-xl px-5 py-3 w-full mt-7">Back to game</button></div></div>
-<div id="endModal" class="modal"><div class="glass rounded-3xl p-7 max-w-sm w-full text-center"><div class="text-4xl mb-3">🏆</div><h2 class="text-2xl font-black" id="endTitle">Game over</h2><p id="endMessage" class="text-stone-300 mt-2"></p><button id="playAgain" class="gold rounded-xl px-5 py-3 mt-6 w-full">Play again</button><button id="endMenu" class="outline rounded-xl px-5 py-3 mt-2 w-full">Main menu</button></div></div>
-<script>
-(() => {
-'use strict';
-const {Engine,World,Bodies,Body,Events,Vector}=Matter;
-const $=id=>document.getElementById(id);
-const canvas=$('board'),ctx=canvas.getContext('2d');
-const engine=Engine.create({enableSleeping:true});engine.gravity.y=0;engine.gravity.x=0;engine.positionIterations=8;engine.velocityIterations=8;
-const W=800, pad=82, min=pad, max=W-pad, center=W/2;
-const COIN_R=15, STRIKER_R=20;
-let coins=[],striker=null,rails=[],pockets=[],mode='local',turn=0,scores=[0,0],queenPocketed=false,queenNeedsCover=-1,queenOwner=-1,shotPocketed=[],shotActive=false,aim=null,drag=null,soundOn=true,audioCtx=null,lastCollision=0,gameOver=false;
-let dpr=1,scale=1;
-function resize(){const r=$('boardWrap').getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);scale=canvas.width/W;draw();}
-window.addEventListener('resize',resize);
-function sound(freq=260,dur=.055,type='triangle',vol=.035){if(!soundOn)return;try{audioCtx ||= new (window.AudioContext||window.webkitAudioContext)();let
- o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.value=freq;g.gain.value=vol;g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur);}catch(e){}}
-function createBoardBodies(){World.clear(engine.world,false);rails=[];const thickness=28;const segments=[
-{x:center,y:min-9,w:max-min+30,h:thickness},{x:center,y:max+9,w:max-min+30,h:thickness},
-{x:min-9,y:center,w:thickness,h:max-min+30},{x:max+9,y:center,w:thickness,h:max-min+30}];
-segments.forEach(s=>{const b=Bodies.rectangle(s.x,s.y,s.w,s.h,{isStatic:true,restitution:.78,friction:.04,label:'rail'});rails.push(b);World.add(engine.world,b);});
-pockets=[{x:min-1,y:min-1},{x:max+1,y:min-1},{x:min-1,y:max+1},{x:max+1,y:max+1}];
-}
-function makeCoin(x,y,color,label='coin'){return Bodies.circle(x,y,COIN_R,{label, restitution:.91,friction:.012,frictionAir:.012,density:.0012,slop:.01,sleepThreshold:50,plugin:{color}});}
-function resetGame(newMode=mode){mode=newMode;turn=0;scores=[0,0];queenPocketed=false;queenNeedsCover=-1;queenOwner=-1;shotPocketed=[];shotActive=false;aim=null;drag=null;gameOver=false;$('endModal').classList.remove('show');createBoardBodies();coins=[];
- const ring1=[0,60,120,180,240,300],ring2=[30,90,150,210,270,330];
- const add=(a,r,col)=>{const rad=a*Math.PI/180;coins.push(makeCoin(center+Math.cos(rad)*r,center+Math.sin(rad)*r,col));};
- coins.push(makeCoin(center,center,'queen','queen'));
- ring1.forEach((a,i)=>add(a,COIN_R*2.08,i%2===0?'white':'black'));
- ring2.forEach((a,i)=>add(a,COIN_R*4.08,i%2===0?'black':'white'));
- // Add remaining coins to make nine of each colour.
- [[center-COIN_R*2.08,center-COIN_R*2.08,'white'],[center+COIN_R*2.08,center-COIN_R*2.08,'black'],[center+COIN_R*2.08,center+COIN_R*2.08,'white'],[center-COIN_R*2.08,center+COIN_R*2.08,'black']].forEach(a=>coins.push(makeCoin(a[0],a[1],a[2])));
- striker=Bodies.circle(center,min+92,STRIKER_R,{label:'striker',restitution:.86,friction:.015,frictionAir:.018,density:.002,sleepThreshold:50});World.add(engine.world,[...coins,striker]);$('home').classList.add('hidden');$('game').classList.remove('hidden');$('modeTitle').textContent=mode==='ai'?'AI Practice':'Local 2 Player';$('p2Name').textContent=mode==='ai'?'Practice AI · Black':'Player 2 · Black';$('p1Name').textContent='Player 1 · White';$('status').textContent='Position your striker.';updateHUD();resize();requestAnimationFrame(loop);}
-function activeBodies(){return [...coins,striker].filter(b=>b&&b.plugin?.pocketed!==true);}
-function moving(){return activeBodies().some(b=>Math.hypot(b.velocity.x,b.velocity.y)>.16);}
-  function updateHUD(){$('p1Score').textContent=scores[0];$('p2Score').textContent=scores[1];$('turnLabel').textContent=turn===0?'Player 1 · White':(mode==='ai'?'Practice AI · Black':'Player 2 · Black');$('whiteLeft').textContent=coins.filter(c=>c.plugin.pocketed!==true&&c.plugin.color==='white').length;$('blackLeft').textContent=coins.filter(c=>c.plugin.pocketed!==true&&c.plugin.color==='black').length;}
-function setStatus(s){$('status').textContent=s;}
-function point(e){const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*W/r.height};}
-function inBaseline(p){return p.y>max-125&&p.y<max+10&&p.x>min+48&&p.x<max-48;}
-function setStrikerX(x){if(!striker)return;const nx=Math.max(min+48,Math.min(max-48,x));Body.setPosition(striker,{x:nx,y:max-74});Body.setVelocity(striker,{x:0,y:0});Body.setAngularVelocity(striker,0);Body.setStatic(striker,true);}
-canvas.addEventListener('pointerdown',e=>{if(gameOver||shotActive||moving())return;const p=point(e);if(mode==='ai'&&turn===1)return;const dist=Math.hypot(p.x-striker.position.x,p.y-striker.position.y);if(dist<STRIKER_R*2.4){drag={kind:'striker',start:p};canvas.setPointerCapture(e.pointerId);setStatus('Slide along the baseline, then pull back.');}else if(inBaseline(p)){setStrikerX(p.x);drag={kind:'striker',start:p};canvas.setPointerCapture(e.pointerId);}else if(Math.hypot(p.x-striker.position.x,p.y-striker.position.y)<120){drag={kind:'aim',start:p};canvas.setPointerCapture(e.pointerId);}});
-canvas.addEventListener('pointermove',e=>{if(!drag||gameOver)return;const p=point(e);if(drag.kind==='striker'){if(Math.abs(p.y-drag.start.y)<70){setStrikerX(p.x);drag.start=p;}else{drag.kind='aim';drag.start={x:striker.position.x,y:striker.position.y};aim=p;}}else{aim=p;const dx=striker.position.x-p.x,dy=striker.position.y-p.y;const power=Math.min(1,Math.hypot(dx,dy)/180);$('powerFill').style.width=(power*100)+'%';$('powerText').textContent=Math.round(power*100)+'%';}draw();});
-canvas.addEventListener('pointerup',e=>{if(!drag)return;const p=point(e);if(drag.kind==='aim'||aim){const dx=striker.position.x-p.x,dy=striker.position.y-p.y;const len=Math.hypot(dx,dy);if(len>10)shoot(dx/len*Math.min(19,len*.105),dy/len*Math.min(19,len*.105));}drag=null;aim=null;$('powerFill').style.width='0%';$('powerText').textContent='Pull back to charge';draw();});
-canvas.addEventListener('pointercancel',()=>{drag=null;aim=null;draw();});
-function shoot(vx,vy){if(shotActive||gameOver)return;Body.setStatic(striker,false);Body.setVelocity(striker,{x:vx,y:vy});shotActive=true;shotPocketed=[];setStatus('Coins in motion…');sound(180,.07,'sawtooth',.03);}
-Events.on(engine,'collisionStart',event=>{for(const pair of event.pairs){const a=pair.bodyA,b=pair.bodyB;if((a.label==='coin'||a.label==='queen'||a.label==='striker')&&(b.label==='coin'||b.label==='queen'||b.label==='striker')){const now=performance.now();if(now-lastCollision>40){sound(220+Math.random()*150,.035,'triangle',.025);lastCollision=now;}}}});
-  function processPockets(){for(const b of [...coins,striker]){if(!b||b.plugin.pocketed)continue;const p=pockets.find(p=>Math.hypot(b.position.x-p.x,b.position.y-p.y)<34);if(p){b.plugin.pocketed=true;World.remove(engine.world,b);if(b===striker){shotPocketed.push('foul');sound(100,.18,'sawtooth',.04);}else{shotPocketed.push(b.label==='queen'?'queen':b.plugin.color);sound(620,.14,'sine',.04);}}}}
-function settleShot(){if(!shotActive||moving())return;shotActive=false;let keep=false,player=turn;const got=shotPocketed.filter(x=>x==='white'||x==='black');const foul=shotPocketed.includes('foul');if(foul){scores[player]=Math.max(0,scores[player]-1);setStatus('Foul: striker pocketed (−1). Turn passes.');}
- if(shotPocketed.includes('queen')){if(queenNeedsCover===-1){queenPocketed=true;queenNeedsCover=player;queenOwner=player;setStatus('Queen pocketed! Cover it with your colour on your next shot.');}else{ // queen was already pending cover; it remains awarded only if covered
- }}
- if(queenNeedsCover===player&&got.length>0&&!foul){scores[player]+=3;queenNeedsCover=-2;keep=true;setStatus('Queen covered! +3 points.');}
- for(const color of got){const expected=player===0?'white':'black';if(color===expected){scores[player]++;keep=true;}}
- if(queenNeedsCover>=0&&queenNeedsCover===player&&got.length===0&&!shotPocketed.includes('queen')){queenNeedsCover=-1;queenPocketed=false;queenOwner=-1;setStatus('Queen not covered. Queen returns to the centre.');coins.push(makeCoin(center,center,'red','queen'));World.add(engine.world,coins[coins.length-1]);}
- if(!got.length&&!shotPocketed.includes('queen')&&!foul)setStatus('No coin pocketed. Turn passes.');
- if(foul||(!keep&&!shotPocketed.includes('queen')))turn=1-turn;
- striker.plugin.pocketed=false;Body.setPosition(striker,{x:center,y:turn===0?max-74:min+74});Body.setVelocity(striker,{x:0,y:0});Body.setStatic(striker,true);
- updateHUD();checkWin();if(mode==='ai'&&turn===1&&!gameOver)setTimeout(aiTurn,650);draw();}
-function checkWin(){const white=coins.filter(c=>c.plugin.pocketed!==true&&c.plugin.color==='white').length,black=coins.filter(c=>c.plugin.pocketed!==true&&c.plugin.color==='black').length;if(white===0||black===0){gameOver=true;const winner=scores[0]===scores[1]?'Draw':scores[0]>scores[1]?'Player 1 wins!':(mode==='ai'?'AI wins!':'Player 2 wins!');$('endTitle').textContent=winner;$('endMessage').textContent=`Final score: ${scores[0]} – ${scores[1]}`;$('endModal').classList.add('show');}}
-function aiTurn(){if(gameOver||mode!=='ai'||turn!==1||shotActive)return;const targets=coins.filter(c=>c.plugin.pocketed!==true&&c.plugin.color==='black');if(!targets.length)return;let target=targets.sort((a,b)=>Math.hypot(a.position.x-center,a.position.y-center)-Math.hypot(b.position.x-center,b.position.y-center))[0];setStrikerX(target.position.x);Body.setStatic(striker,false);const dx=target.position.x-striker.position.x,dy=target.position.y-striker.position.y;const vx=(center-target.position.x)*.035,vy=12;Body.setVelocity(striker,{x:vx,y:vy});shotActive=true;shotPocketed=[];setStatus('AI taking a shot…');}
-function draw(){if(!ctx||!canvas.width)return;ctx.setTransform(scale,0,0,scale,0,0);ctx.clearRect(0,0,W,W);
- // outer walnut frame and bevel
- let
-   g=ctx.createLinearGradient(25,25,775,775);g.addColorStop(0,'#d49a55');g.addColorStop(.25,'#6b3d1d');g.addColorStop(.5,'#bd8040');g.addColorStop(1,'#3b2112');ctx.fillStyle=g;roundRect(ctx,12,12,776,776,30);ctx.fill();
- ctx.strokeStyle='#f0c982';ctx.lineWidth=3;roundRect(ctx,24,24,752,752,23);ctx.stroke();
- let wood=ctx.createLinearGradient(70,70,730,730);wood.addColorStop(0,'#e6c68d');wood.addColorStop(.5,'#d6ae70');wood.addColorStop(1,'#c89a5a');ctx.fillStyle=wood;roundRect(ctx,43,43,714,714,16);ctx.fill();
- // subtle grain lines
- for(let i=0;i<34;i++){ctx.beginPath();ctx.strokeStyle=i%2?'#8e5c2d14':'#fff0c21a';ctx.lineWidth=1;let y=55+i*21;ctx.moveTo(52,y);ctx.bezierCurveTo(240,y-8,540,y+8,748,y);ctx.stroke();}
- ctx.strokeStyle='#75451f';ctx.lineWidth=4;ctx.strokeRect(min,min,max-min,max-min);
- // baseline arrows, circles, center
- ctx.strokeStyle='#7d3c22';ctx.lineWidth=3;
- for(const y of [min+65,max-65]){ctx.beginPath();ctx.moveTo(min+48,y);ctx.lineTo(max-48,y);ctx.stroke();for(const x of [min+48,max-48]){ctx.beginPath();ctx.arc(x,y,24,0,Math.PI*2);ctx.stroke();}}
- ctx.beginPath();ctx.arc(center,center,77,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(center,center,50,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(center,center,24,0,Math.PI*2);ctx.fillStyle='#8c3828';ctx.fill();
- // corner pockets
- pockets.forEach(p=>{let pg=ctx.createRadialGradient(p.x-4,p.y-4,2,p.x,p.y,35);pg.addColorStop(0,'#090604');pg.addColorStop(.7,'#1c100a');pg.addColorStop(1,'#9d6331');ctx.fillStyle=pg;ctx.beginPath();ctx.arc(p.x,p.y,35,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#f1c57b';ctx.lineWidth=3;ctx.stroke();ctx.beginPath();ctx.arc(p.x,p.y,26,0,Math.PI*2);ctx.strokeStyle='#000';ctx.lineWidth=4;ctx.stroke();});
- // guide line
- if(aim&&striker&&!shotActive){const dx=striker.position.x-aim.x,dy=striker.position.y-aim.y,len=Math.hypot(dx,dy);if(len>0){ctx.save();ctx.setLineDash([5,9]);ctx.strokeStyle='#fff6d5';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(striker.position.x,striker.position.y);ctx.lineTo(striker.position.x+dx/len*260,striker.position.y+dy/len*260);ctx.stroke();ctx.restore();}}
 
-  coins.forEach(c=>{if(c.plugin.pocketed)return;drawPiece(c.position.x,c.position.y,COIN_R,c.plugin.color==='white'?'#fff2d3':c.plugin.color==='black'?'#29201b':'#b62d25',c.plugin.color==='white'?'#b89a66':'#e0b66f',c.label==='queen'?'♛':'');});
- if(striker&&!striker.plugin.pocketed)drawPiece(striker.position.x,striker.position.y,STRIKER_R,'#f5e3bc','#8b5726','✦');
-}
-function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
-function drawPiece(x,y,r,base,edge,symbol){const grad=ctx.createRadialGradient(x-r*.38,y-r*.42,r*.1,x,y,r);grad.addColorStop(0,'#ffffff');grad.addColorStop(.18,base);grad.addColorStop(.75,base);grad.addColorStop(1,edge);ctx.fillStyle=grad;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.strokeStyle=edge;ctx.lineWidth=2;ctx.stroke();ctx.beginPath();ctx.arc(x,y,r*.68,0,Math.PI*2);ctx.strokeStyle=edge+'99';ctx.lineWidth=1;ctx.stroke();if(symbol){ctx.fillStyle=edge;ctx.font=`bold ${r}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(symbol,x,y+1);}}
-let last=0;function loop(t){if(!engine.enabled)return;const dt=Math.min(32,t-(last||t));last=t;Engine.update(engine,dt||16.667);if(shotActive){processPockets();if(!moving())settleShot();}draw();if(!gameOver)requestAnimationFrame(loop);}
-$('localBtn').onclick=()=>resetGame('local');$('aiBtn').onclick=()=>resetGame('ai');$('restartBtn').onclick=()=>resetGame(mode);$('menuBtn').onclick=()=>{$('game').classList.add('hidden');$('home').classList.remove('hidden');gameOver=false;};$('playAgain').onclick=()=>resetGame(mode);$('endMenu').onclick=()=>{$('endModal').classList.remove('show');$('game').classList.add('hidden');$('home').classList.remove('hidden');};$('soundBtn').onclick=()=>{soundOn=!soundOn;$('soundBtn').textContent='♫ Sound: '+(soundOn?'On':'Off');if(soundOn)sound(440,.08);};
-function showAbout(){$('aboutModal').classList.add('show');}function hideAbout(){$('aboutModal').classList.remove('show');}
-$('aboutTop').onclick=showAbout;$('aboutFoot').onclick=showAbout;$('closeAbout').onclick=hideAbout;$('closeAbout2').onclick=hideAbout;$('aboutModal').addEventListener('click',e=>{if(e.target===$('aboutModal'))hideAbout();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){hideAbout();$('endModal').classList.remove('show');}});
-createBoardBodies();resize();
-})();
-</script>
+<body>
+<div id="app">
+
+  <!-- HOME PAGE -->
+  <section id="home-page" class="page active">
+
+    <header class="topbar">
+      <button class="icon-button" id="menu-open" aria-label="Open menu">☰</button>
+
+      <div class="text-center flex-1 min-w-0">
+        <div class="eyebrow">Premium Edition</div>
+        <div class="brand-title text-base sm:text-lg font-bold gold-text">
+          ADVANCED PRO CARROM
+        </div>
+      </div>
+
+      <button class="icon-button" id="language-open" aria-label="Change language">
+        <span class="text-xs font-extrabold">🌐</span>
+      </button>
+    </header>
+
+    <!-- Language popup -->
+    <div id="language-popover" class="language-popover hidden-force">
+      <div class="flex justify-between items-center mb-2 px-2">
+        <span class="font-bold">Choose Language</span>
+        <button id="language-close" class="text-gray-400 text-xl" aria-label="Close">×</button>
+      </div>
+      <div id="language-options" class="grid grid-cols-2 gap-1"></div>
+    </div>
+
+    <main class="scroll-area">
+      <div class="home-content px-5 pt-5 pb-8">
+
+        <div class="text-center mt-2">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-panel mb-4">
+            <span class="w-2 h-2 rounded-full bg-green-400"></span>
+            <span class="text-xs text-gray-300" data-i18n="premiumExperience">
+              Premium Carrom Experience
+            </span>
+          </div>
+
+          <h1 class="brand-title text-3xl sm:text-4xl font-bold leading-tight">
+            <span data-i18n="playLikePro">Play Like A</span>
+            <span class="gold-text" data-i18n="champion">Champion.</span>
+          </h1>
+
+          <p class="text-sm text-gray-400 mt-3 max-w-xs mx-auto leading-relaxed"
+             data-i18n="homeSubtitle">
+            Aim perfectly. Strike powerfully. Rule the board.
+          </p>
+        </div>
+
+        <!-- Board showcase; Part 03 will draw the board here -->
+        <div class="relative my-6 mx-auto w-full max-w-sm">
+          <div class="absolute inset-3 rounded-full blur-3xl opacity-20"
+               style="background:#c59a4d"></div>
+
+          <div class="relative rounded-3xl p-3 sm:p-4 glass-panel">
+            <div class="rounded-2xl p-2"
+                 style="background:linear-gradient(135deg,#704622,#301b10,#8b5c2d)">
+              <div class="rounded-xl p-2"
+                   style="background:linear-gradient(135deg,#e2bd7b,#a97939,#d8b16a)">
+                <div class="relative aspect-square overflow-hidden rounded-lg"
+                     style="background:linear-gradient(145deg,#e4c894,#c7a16a,#e5cc9a);box-shadow:inset 0 0 0 4px #714722,inset 0 0 0 7px #d3ad6d">
+
+                  <div class="absolute inset-[9%] border-2 border-amber-900/70 rounded-sm"></div>
+
+                  <div class="absolute inset-[18%] border border-amber-900/50 rounded-full"></div>
+                  <div class="absolute inset-[31%] border-2 border-red-800/60 rounded-full"></div>
+
+                  <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="w-[15%] aspect-square rounded-full"
+                         style="background:radial-gradient(circle at 30% 25%,#fa7777,#bd202b 55%,#690d18);box-shadow:0 3px 5px #54301b"></div>
+                  </div>
+
+                  <div class="absolute top-[24%] left-[36%] w-[12%] aspect-square rounded-full"
+                       style="background:radial-gradient(circle at 30% 25%,#fff,#dedede 50%,#8d8d8d);box-shadow:0 3px 4px #674c2c"></div>
+
+                  <div class="absolute top-[35%] left-[52%] w-[12%] aspect-square rounded-full"
+                       style="background:radial-gradient(circle at 30% 25%,#666,#222 55%,#050505);box-shadow:0 3px 4px #674c2c"></div>
+
+                  <div class="absolute bottom-[24%] right-[28%] w-[12%] aspect-square rounded-full"
+                       style="background:radial-gradient(circle at 30% 25%,#fff,#dedede 50%,#8d8d8d);box-shadow:0 3px 4px #674c2c"></div>
+
+                  <div class="absolute bottom-[10%] left-[10%] w-[9%] aspect-square rounded-full bg-black"></div>
+                  <div class="absolute bottom-[10%] right-[10%] w-[9%] aspect-square rounded-full bg-black"></div>
+                  <div class="absolute top-[10%] left-[10%] w-[9%] aspect-square rounded-full bg-black"></div>
+                  <div class="absolute top-[10%] right-[10%] w-[9%] aspect-square rounded-full bg-black"></div>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-between items-center px-1 pt-3">
+              <span class="text-xs text-gray-400">EST. 2026</span>
+              <span class="eyebrow">Precision • Skill • Victory</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main actions -->
+        <div class="grid gap-3">
+          <button id="play-ai" class="gold-button w-full flex items-center justify-center gap-3 px-4">
+            <span class="text-xl">♟</span>
+            <span data-i18n="playAI">Play vs AI</span>
+            <span class="ml-auto text-lg">→</span>
+          </button>
+
+          <button id="play-offline" class="outline-button w-full flex items-center justify-center gap-3 px-4">
+            <span class="text-xl">👥</span>
+            <span data-i18n="playOffline">Play Offline</span>
+            <span class="ml-auto text-lg">→</span>
+          </button>
+
+          <button id="play-online" class="outline-button w-full flex items-center justify-center gap-3 px-4">
+            <span class="text-xl">🌐</span>
+            <span data-i18n="playOnline">Online Friends</span>
+            <span class="ml-auto text-lg">→</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 mt-5">
+          <button id="open-profile" class="glass-panel rounded-xl p-3 text-center">
+            <div class="text-xl mb-1">👤</div>
+            <div class="text-xs font-semibold" data-i18n="profile">Profile</div>
+          </button>
+          <button id="open-leaderboard" class="glass-panel rounded-xl p-3 text-center">
+            <div class="text-xl mb-1">🏆</div>
+            <div class="text-xs font-semibold" data-i18n="leaderboard">Leaderboard</div>
+          </button>
+          <button id="open-rewards" class="glass-panel rounded-xl p-3 text-center">
+            <div class="text-xl mb-1">🎁</div>
+            <div class="text-xs font-semibold" data-i18n="rewards">Rewards</div>
+          </button>
+        </div>
+
+        <p class="text-center text-xs text-gray-600 mt-6">
+          ADVANCED PRO CARROM · <span data-i18n="allRights">All rights reserved</span>
+        </p>
+      </div>
+    </main>
+  </section>
+
+  <!-- PLAYER COUNT PAGE -->
+  <section id="players-page" class="page">
+    <header class="topbar">
+      <button class="icon-button" id="players-back" aria-label="Back">←</button>
+      <div class="flex-1 text-center font-bold" data-i18n="choosePlayers">Choose Players</div>
+      <button class="icon-button" id="players-language" aria-label="Change language">🌐</button>
+    </header>
+
+    <main class="scroll-area flex items-center justify-center">
+      <div class="w-full max-w-md p-5">
+        <div class="eyebrow text-center mb-3" id="player-mode-label">GAME MODE</div>
+        <h2 class="brand-title text-3xl text-center mb-2" data-i18n="howManyPlayers">
+          How Many Players?
+        </h2>
+        <p class="text-sm text-gray-400 text-center mb-7" data-i18n="selectPlayerCount">
+          Choose the number of players for your match.
+        </p>
+
+        <div class="grid grid-cols-3 gap-3">
+          <button class="choice-card" data-player-count="2">
+            <div class="choice-icon mx-auto">👤</div>
+            <div class="text-center text-2xl font-extrabold">2</div>
+            <div class="text-center text-xs text-gray-400 mt-1" data-i18n="twoPlayers">Players</div>
+          </button>
+          <button class="choice-card" data-player-count="3">
+            <div class="choice-icon mx-auto">👥</div>
+            <div class="text-center text-2xl font-extrabold">3</div>
+            <div class="text-center text-xs text-gray-400 mt-1" data-i18n="threePlayers">Players</div>
+          </button>
+          <button class="choice-card" data-player-count="4">
+            <div class="choice-icon mx-auto">♟</div>
+            <div class="text-center text-2xl font-extrabold">4</div>
+            <div class="text-center text-xs text-gray-400 mt-1" data-i18n="fourPlayers">Players</div>
+          </button>
+        </div>
+
+        <div class="glass-panel rounded-2xl p-4 mt-6">
+          <div class="font-bold mb-1" data-i18n="gameInfo">Game Information</div>
+          <p class="text-sm text-gray-400 leading-relaxed" id="player-mode-info">
+            Select a player count to continue.
+          </p>
+        </div>
+
+        <button id="start-selected-game" class="gold-button w-full mt-5" disabled>
+          <span data-i18n="continue">Continue</span> →
+        </button>
+      </div>
+    </main>
+  </section>
+
+  <!-- GAME PAGE -->
+  <section id="game-page" class="page">
+    <header class="game-toolbar">
+      <button id="game-menu-open" class="icon-button" aria-label="Game menu">☰</button>
+      <div class="text-center flex-1 min-w-0">
+        <div class="text-xs text-gray-400" id="game-mode-name">CARROM MATCH</div>
+        <div class="font-bold gold-text text-sm" id="turn-label">YOUR TURN</div>
+      </div>
+      <button id="game-language" class="icon-button" aria-label="Change language">🌐</button>
+    </header>
+
+    <div class="flex justify-center gap-2 px-2 py-2">
+      <div class="stat-pill text-center">
+        <div class="small-label" data-i18n="level">Level</div>
+        <div id="game-level" class="font-bold text-sm">1</div>
+      </div>
+      <div class="stat-pill text-center">
+        <div class="small-label" data-i18n="currentPlayer">Turn</div>
+        <div id="current-player" class="font-bold text-sm">Player 1</div>
+      </div>
+      <div class="stat-pill text-center">
+        <div class="small-label" data-i18n="score">Score</div>
+        <div id="current-score" class="font-bold text-sm gold-text">0</div>
+      </div>
+    </div>
+
+    <div id="game-canvas-wrap">
+      <canvas id="game-canvas" aria-label="Carrom game board"></canvas>
+      <div id="game-loading" class="absolute inset-0 flex items-center justify-center bg-black/70">
+        <div class="text-center">
+          <div class="text-3xl mb-3">♟</div>
+          <div class="gold-text font-bold">Preparing Board...</div>
+          <div class="text-xs text-gray-400 mt-2">Advanced Pro Carrom</div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="game-bottom">
+      <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <div class="small-label" data-i18n="shotPower">Shot Power</div>
+          <div class="h-2 rounded-full overflow-hidden mt-2" style="background:#39352b">
+            <div id="power-fill" class="h-full rounded-full"
+                 style="width:0%;background:linear-gradient(90deg,#b88b42,#f2dca5)"></div>
+          </div>
+        </div>
+        <button id="sound-toggle" class="icon-button" aria-label="Toggle sound">🔊</button>
+        <button id="game-pause" class="icon-button" aria-label="Pause game">Ⅱ</button>
+      </div>
+      <div id="game-hint" class="text-center text-xs text-gray-500 mt-2"
+           data-i18n="aimHint">
+        Drag the striker to aim, then release to shoot.
+      </div>
+    </footer>
+  </section>
+ <!-- MENU DRAWER -->
+  <div id="menu-overlay" class="overlay">
+    <div class="dialog">
+      <div class="flex justify-between items-center mb-5">
+        <div>
+          <div class="eyebrow">ADVANCED PRO</div>
+          <h2 class="brand-title text-2xl gold-text">CARROM</h2>
+        </div>
+        <button class="icon-button" id="menu-close" aria-label="Close menu">×</button>
+      </div>
+
+      <div class="grid gap-2">
+        <button class="outline-button w-full text-left px-4" id="menu-resume">▶ <span data-i18n="resume">Resume Game</span></button>
+        <button class="outline-button w-full text-left px-4" id="menu-settings">⚙ <span data-i18n="settings">Settings</span></button>
+        <button class="outline-button w-full text-left px-4" id="menu-profile">👤 <span data-i18n="profile">Profile</span></button>
+        <button class="outline-button w-full text-left px-4" id="menu-about">ⓘ <span data-i18n="about">About Developer</span></button>
+        <button class="outline-button w-full text-left px-4" id="menu-home">⌂ <span data-i18n="home">Home</span></button>
+        <button class="outline-button w-full text-left px-4" id="menu-quit">✕ <span data-i18n="quit">Quit Match</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settings-overlay" class="overlay">
+    <div class="dialog">
+      <div class="flex justify-between items-center mb-5">
+        <h2 class="brand-title text-2xl gold-text" data-i18n="settings">Settings</h2>
+        <button class="icon-button" id="settings-close" aria-label="Close">×</button>
+      </div>
+
+      <div class="space-y-5">
+        <div>
+          <div class="flex justify-between mb-2">
+            <label for="music-volume" data-i18n="music">Background Music</label>
+            <span id="music-value" class="text-sm text-gray-400">35%</span>
+          </div>
+          <input id="music-volume" class="w-full" type="range" min="0" max="100" value="35">
+        </div>
+
+        <div>
+          <div class="flex justify-between mb-2">
+            <label for="sfx-volume" data-i18n="soundEffects">Sound Effects</label>
+            <span id="sfx-value" class="text-sm text-gray-400">75%</span>
+          </div>
+          <input id="sfx-volume" class="w-full" type="range" min="0" max="100" value="75">
+        </div>
+
+        <label class="flex items-center justify-between gap-3">
+          <span data-i18n="vibration">Vibration</span>
+          <input id="vibration-toggle" type="checkbox" checked>
+        </label>
+
+        <label class="flex items-center justify-between gap-3">
+          <span data-i18n="leftHanded">Left-Handed Controls</span>
+          <input id="left-handed-toggle" type="checkbox">
+        </label>
+
+        <div>
+          <label for="graphics-quality" class="block mb-2" data-i18n="graphics">Graphics Quality</label>
+          <select id="graphics-quality" class="input-field">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+         <button id="settings-save" class="gold-button w-full" data-i18n="saveSettings">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABOUT DEVELOPER MODAL -->
+  <div id="about-overlay" class="overlay">
+    <div class="dialog text-center">
+      <button id="about-close" class="icon-button ml-auto mb-4" aria-label="Close">×</button>
+      <div class="text-4xl mb-3">♟</div>
+      <div class="eyebrow">THE CREATOR</div>
+      <h2 class="brand-title text-2xl gold-text mt-2">Advanced Pro Carrom</h2>
+      <div class="glass-panel rounded-2xl p-5 mt-5">
+        <div class="text-xs text-gray-400 uppercase tracking-widest">Founder & Developer</div>
+        <div class="text-xl font-bold mt-2">Subhash Yadav</div>
+        <a class="block gold-text mt-4" href="https://instagram.com/iamsubhash177" target="_blank" rel="noopener noreferrer">
+          Instagram · @iamsubhash177
+        </a>
+        <a class="block gold-text mt-3 break-all" href="mailto:yahu9950@gmail.com">
+          yahu9950@gmail.com
+        </a>
+      </div>
+      <p class="text-xs text-gray-500 mt-5">Built with passion for carrom lovers.</p>
+    </div>
+  </div>
+
+  <!-- PROFILE MODAL -->
+  <div id="profile-overlay" class="overlay">
+    <div class="dialog">
+      <div class="flex justify-between items-center mb-5">
+        <h2 class="brand-title text-2xl gold-text" data-i18n="profile">Profile</h2>
+        <button id="profile-close" class="icon-button" aria-label="Close">×</button>
+      </div>
+      <div class="glass-panel rounded-2xl p-5 text-center">
+        <div class="text-4xl">👤</div>
+        <div id="profile-name" class="text-xl font-bold mt-2">Guest Player</div>
+        <div class="text-xs text-gray-400 mt-1">Player ID: <span id="profile-id">GUEST-0001</span></div>
+        <div class="grid grid-cols-3 gap-2 mt-5">
+          <div class="stat-pill"><div class="small-label">Matches</div><div id="stat-matches" class="font-bold mt-1">0</div></div>
+          <div class="stat-pill"><div class="small-label">Wins</div><div id="stat-wins" class="font-bold mt-1">0</div></div>
+          <div class="stat-pill"><div class="small-label">Level</div><div id="stat-level" class="font-bold mt-1">1</div></div>
+        </div>
+      </div>
+      <p class="text-xs text-gray-500 mt-4" data-i18n="profileNote">
+        Online account features require account and server setup.
+      </p>
+    </div>
+  </div>
+    <!-- LEADERBOARD MODAL -->
+  <div id="leaderboard-overlay" class="overlay">
+    <div class="dialog">
+      <div class="flex justify-between items-center mb-5">
+        <h2 class="brand-title text-2xl gold-text" data-i18n="leaderboard">Leaderboard</h2>
+        <button id="leaderboard-close" class="icon-button" aria-label="Close">×</button>
+      </div>
+      <div id="leaderboard-content" class="space-y-2">
+        <div class="glass-panel rounded-xl p-4 text-sm text-gray-400">
+          Play matches to build your local stats. Global rankings require the online service.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REWARDS MODAL -->
+  <div id="rewards-overlay" class="overlay">
+    <div class="dialog">
+      <div class="flex justify-between items-center mb-5">
+        <h2 class="brand-title text-2xl gold-text" data-i18n="rewards">Rewards</h2>
+        <button id="rewards-close" class="icon-button" aria-label="Close">×</button>
+      </div>
+      <div class="glass-panel rounded-2xl p-5 text-center">
+        <div class="text-4xl">🎁</div>
+        <div class="text-xl font-bold mt-3">Daily Practice</div>
+        <p class="text-sm text-gray-400 mt-2">Complete matches to build your progress.</p>
+        <div class="mt-4 gold-text font-bold">XP · Achievements · Levels</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAUSE / RESULT MODAL -->
+  <div id="pause-overlay" class="overlay">
+    <div class="dialog text-center">
+      <div class="text-3xl mb-3">Ⅱ</div>
+      <h2 id="pause-title" class="brand-title text-2xl gold-text">Game Paused</h2>
+      <p id="pause-message" class="text-sm text-gray-400 mt-2 mb-5">Take your time.</p>
+      <div id="pause-actions" class="grid gap-3">
+        <button id="pause-resume" class="gold-button w-full">▶ Resume</button>
+        <button id="pause-restart" class="outline-button w-full">↻ Restart Match</button>
+        <button id="pause-quit" class="outline-button w-full">⌂ Quit to Home</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PART 02 WILL ADD THE APP LOGIC HERE -->
+
+</div>
+
+<!-- App JavaScript will be added in the following parts. -->
 </body>
 </html>
+
+  
